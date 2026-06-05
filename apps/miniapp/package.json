@@ -1,0 +1,15 @@
+{
+	"name": "@jewelry/miniapp",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Miniapp offline skeleton for scan entry, coupon wallet, and try-on media authorization pages.",
+	"dependencies": {
+		"@jewelry/shared": "workspace:*"
+	},
+	"scripts": {
+		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"lint": "echo 'lint placeholder: install framework lint dependencies before enabling @jewelry/miniapp lint'",
+		"test": "echo 'test placeholder: install test runner before enabling @jewelry/miniapp tests'"
+	}
+}

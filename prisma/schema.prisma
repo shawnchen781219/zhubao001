@@ -1,0 +1,779 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../apps/api/src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StoreStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  ADVISOR
+  OPERATOR
+}
+
+enum StaffStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  MERGED
+  BLOCKED
+}
+
+enum CustomerIdentityType {
+  WECHAT_OPENID
+  WECHAT_UNIONID
+  PHONE
+  STAFF_CREATED
+}
+
+enum DeviceType {
+  MIRROR_TERMINAL
+  CUSTOM_PAD
+  ADMIN_TERMINAL
+  DISPLAY_SCREEN
+}
+
+enum DeviceStatus {
+  PENDING_ACTIVATION
+  ACTIVE
+  SUSPENDED
+  RETIRED
+}
+
+enum ProductType {
+  NECKLACE
+  EARRING
+  BRACELET
+  RING
+  GEMSTONE
+  OTHER
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  MODEL_3D
+  CERTIFICATE
+  DESIGN_DRAFT
+}
+
+enum GemstoneType {
+  NATURAL
+  LAB_DIAMOND
+  LAB_GEMSTONE
+  OTHER
+}
+
+enum TryOnSessionStatus {
+  ANONYMOUS
+  QR_SHOWN
+  SCANNED
+  AUTHORIZED
+  COMPLETED
+  EXPIRED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  POSTER
+  THUMBNAIL
+}
+
+enum MediaAuthorizationStatus {
+  LOCAL_TEMP_ONLY
+  AUTHORIZED_TO_UPLOAD
+  UPLOADED_PRIVATE
+  AUTHORIZED_TO_SHARE
+  EXPIRED
+  DELETED
+}
+
+enum CouponTemplateType {
+  FREE_CLEANING
+  GEMSTONE_BLIND_BOX
+  AMOUNT_OFF
+  PERCENT_OFF
+}
+
+enum CouponStatus {
+  ISSUED
+  LOCKED
+  REDEEMED
+  EXPIRED
+  VOIDED
+}
+
+enum EventType {
+  DEVICE_REGISTERED
+  DEVICE_HEARTBEAT
+  DEVICE_SUSPENDED
+  CATALOG_SYNCED
+  TRY_ON_STARTED
+  TRY_ON_ITEM_SELECTED
+  TRY_ON_QR_SHOWN
+  TRY_ON_QR_SCANNED
+  TRY_ON_AUTHORIZED
+  TRY_ON_COMPLETED
+  CUSTOMER_AUTHORIZED
+  CUSTOMER_CREATED
+  CUSTOMER_MERGED
+  CUSTOMER_PROFILE_UPDATED
+  MEDIA_AUTHORIZED
+  MEDIA_EXPIRED
+  MEDIA_DELETED
+  COUPON_ISSUED
+  COUPON_REDEEMED
+  COUPON_EXPIRED
+  COUPON_VOIDED
+  STAFF_FOLLOW_UP_CREATED
+}
+
+model Store {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  name        String
+  status      StoreStatus @default(ACTIVE)
+  timezone    String      @default("Asia/Shanghai")
+  address     String?
+  phone       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  staffUsers       StaffUser[]
+  customers        Customer[]
+  devices          Device[]
+  products         Product[]
+  productAssets    ProductAsset[]
+  gemstones        Gemstone[]
+  tryOnSessions    TryOnSession[]
+  mediaAssets      MediaAsset[]
+  couponTemplates  CouponTemplate[]
+  coupons          Coupon[]
+  eventLogs        EventLog[]
+  memberLevelRules MemberLevelRule[]
+  referralCards    ReferralCard[]
+
+  @@index([status])
+}
+
+model StaffUser {
+  id           String      @id @default(cuid())
+  storeId      String
+  email        String
+  displayName  String
+  phoneHash    String?
+  role         StaffRole   @default(ADVISOR)
+  status       StaffStatus @default(INVITED)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  store          Store          @relation(fields: [storeId], references: [id])
+  createdDevices Device[]       @relation("DeviceCreatedBy")
+  createdEvents  EventLog[]     @relation("EventCreatedByStaff")
+  issuedCoupons  Coupon[]       @relation("CouponIssuedByStaff")
+
+  @@unique([storeId, email])
+  @@index([storeId, status])
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  storeId      String
+  displayName  String?
+  phoneHash    String?
+  status       CustomerStatus @default(ACTIVE)
+  tags         Json?
+  preferences  Json?
+  mergedIntoId String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  store              Store              @relation(fields: [storeId], references: [id])
+  mergedInto         Customer?          @relation("CustomerMerge", fields: [mergedIntoId], references: [id])
+  mergedCustomers    Customer[]         @relation("CustomerMerge")
+  identities         CustomerIdentity[]
+  tryOnSessions      TryOnSession[]
+  mediaAssets        MediaAsset[]
+  coupons            Coupon[]
+  eventLogs          EventLog[]
+  jewelryBoxItems    JewelryBoxItem[]
+  careReminders      CareReminder[]
+  luckySignRecords   LuckySignRecord[]
+  memberProfile      MemberProfile?
+  pointsTransactions PointsTransaction[]
+  referralCards      ReferralCard[]
+  tradeInAssessments TradeInAssessment[]
+
+  @@index([storeId, status])
+  @@index([phoneHash])
+}
+
+model CustomerIdentity {
+  id           String               @id @default(cuid())
+  customerId   String
+  type         CustomerIdentityType
+  identityHash String
+  rawHint      String?
+  verifiedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@unique([type, identityHash])
+  @@index([customerId])
+}
+
+model Device {
+  id              String       @id @default(cuid())
+  storeId         String
+  createdByStaffId String?
+  code            String
+  name            String
+  type            DeviceType
+  status          DeviceStatus @default(PENDING_ACTIVATION)
+  secretHash      String
+  lastHeartbeatAt DateTime?
+  lastSeenIpHash  String?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  store            Store          @relation(fields: [storeId], references: [id])
+  createdByStaff   StaffUser?     @relation("DeviceCreatedBy", fields: [createdByStaffId], references: [id])
+  tryOnSessions    TryOnSession[]
+  eventLogs        EventLog[]
+
+  @@unique([storeId, code])
+  @@index([storeId, status])
+  @@index([type, status])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  storeId     String
+  sku         String
+  name        String
+  type        ProductType
+  status      ProductStatus @default(DRAFT)
+  description String?
+  priceCents  Int?
+  currency    String        @default("CNY")
+  tags        Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  store       Store          @relation(fields: [storeId], references: [id])
+  assets      ProductAsset[]
+  gemstone    Gemstone?
+  tryOnItems  TryOnItem[]
+  jewelryBoxItems JewelryBoxItem[]
+
+  @@unique([storeId, sku])
+  @@index([storeId, status])
+  @@index([type])
+}
+
+model ProductAsset {
+  id          String    @id @default(cuid())
+  storeId     String
+  productId   String
+  kind        AssetKind
+  storageKey  String
+  sortOrder   Int       @default(0)
+  altText     String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  store   Store   @relation(fields: [storeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([storeId, productId])
+  @@index([kind])
+}
+
+model Gemstone {
+  id               String       @id @default(cuid())
+  storeId          String
+  productId        String?      @unique
+  code             String
+  type             GemstoneType
+  name             String
+  origin           String?
+  certificateNo    String?
+  storySummary     String?
+  formationProcess Json?
+  inclusions       Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  store   Store    @relation(fields: [storeId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@unique([storeId, code])
+  @@index([storeId, type])
+  @@index([certificateNo])
+}
+
+model TryOnSession {
+  id             String             @id @default(cuid())
+  storeId        String
+  deviceId       String
+  customerId     String?
+  anonymousId    String
+  qrTokenHash    String?            @unique
+  status         TryOnSessionStatus @default(ANONYMOUS)
+  startedAt      DateTime           @default(now())
+  endedAt        DateTime?
+  qrShownAt      DateTime?
+  scannedAt      DateTime?
+  authorizedAt   DateTime?
+  expiresAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  store       Store        @relation(fields: [storeId], references: [id])
+  device      Device       @relation(fields: [deviceId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  items       TryOnItem[]
+  mediaAssets MediaAsset[]
+  coupons     Coupon[]
+  eventLogs   EventLog[]
+
+  @@index([storeId, startedAt])
+  @@index([deviceId, startedAt])
+  @@index([customerId])
+  @@index([anonymousId])
+  @@index([status])
+}
+
+model TryOnItem {
+  id             String   @id @default(cuid())
+  tryOnSessionId String
+  productId      String
+  selectedAt     DateTime @default(now())
+  durationMs     Int?
+  position        String?
+  renderConfig    Json?
+  createdAt       DateTime @default(now())
+
+  tryOnSession TryOnSession @relation(fields: [tryOnSessionId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+  mediaAssets  MediaAsset[]
+
+  @@index([tryOnSessionId])
+  @@index([productId])
+}
+
+model MediaAsset {
+  id                  String                   @id @default(cuid())
+  storeId             String
+  customerId          String?
+  tryOnSessionId      String?
+  tryOnItemId         String?
+  type                MediaType
+  storageKey          String
+  checksumHash        String?
+  authorizationStatus MediaAuthorizationStatus @default(LOCAL_TEMP_ONLY)
+  authorizedAt        DateTime?
+  uploadedAt          DateTime?
+  expiresAt           DateTime?
+  metadata            Json?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  store        Store         @relation(fields: [storeId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  tryOnSession TryOnSession? @relation(fields: [tryOnSessionId], references: [id])
+  tryOnItem    TryOnItem?    @relation(fields: [tryOnItemId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@index([customerId])
+  @@index([tryOnSessionId])
+  @@index([authorizationStatus])
+  @@index([expiresAt])
+}
+
+model CouponTemplate {
+  id             String             @id @default(cuid())
+  storeId        String
+  code           String
+  name           String
+  type           CouponTemplateType
+  valueCents     Int?
+  percentOff     Int?
+  validityDays   Int                @default(7)
+  maxIssueCount  Int?
+  active         Boolean            @default(true)
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  store   Store    @relation(fields: [storeId], references: [id])
+  coupons Coupon[]
+
+  @@unique([storeId, code])
+  @@index([storeId, active])
+}
+
+model Coupon {
+  id                   String       @id @default(cuid())
+  storeId              String
+  templateId           String
+  customerId           String?
+  sourceTryOnSessionId String?
+  idempotencyKey       String       @unique
+  status               CouponStatus @default(ISSUED)
+  issuedByStaffId      String?
+  issuedAt             DateTime     @default(now())
+  lockedAt             DateTime?
+  redeemedAt           DateTime?
+  expiresAt            DateTime
+  metadata             Json?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  store              Store         @relation(fields: [storeId], references: [id])
+  template           CouponTemplate @relation(fields: [templateId], references: [id])
+  customer           Customer?     @relation(fields: [customerId], references: [id])
+  sourceTryOnSession TryOnSession? @relation(fields: [sourceTryOnSessionId], references: [id])
+  issuedByStaff      StaffUser?    @relation("CouponIssuedByStaff", fields: [issuedByStaffId], references: [id])
+
+  @@index([storeId, status])
+  @@index([customerId, status])
+  @@index([sourceTryOnSessionId])
+  @@index([expiresAt])
+}
+
+model EventLog {
+  id             String    @id @default(cuid())
+  storeId        String
+  eventType      EventType
+  occurredAt     DateTime  @default(now())
+  deviceId       String?
+  customerId     String?
+  anonymousId    String?
+  tryOnSessionId String?
+  createdByStaffId String?
+  payload        Json?
+  createdAt      DateTime  @default(now())
+
+  store          Store         @relation(fields: [storeId], references: [id])
+  device         Device?       @relation(fields: [deviceId], references: [id])
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  tryOnSession   TryOnSession? @relation(fields: [tryOnSessionId], references: [id])
+  createdByStaff StaffUser?    @relation("EventCreatedByStaff", fields: [createdByStaffId], references: [id])
+
+  @@index([storeId, eventType, occurredAt])
+  @@index([deviceId, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([anonymousId])
+  @@index([tryOnSessionId])
+}
+
+enum CareType {
+  DEEP_CLEANING
+  POLISHING
+  GLOSS_CARE
+  ANNUAL_CARE
+  ROUTINE_CLEANING
+  CERTIFICATION
+}
+
+enum MemberLevel {
+  NEW
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+}
+
+enum PointsTransactionType {
+  PURCHASE
+  TRY_ON
+  COUPON_ISSUED
+  LUCKY_SIGN
+  GRANTED
+  SPENT
+  BIRTHDAY_BONUS
+  EXPIRED
+  REFERRAL
+}
+
+model JewelryBoxItem {
+  id           String    @id @default(cuid())
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  productId    String?
+  product      Product?  @relation(fields: [productId], references: [id])
+  displayName  String
+  gemType      String?
+  metalType    String?
+  priceCents   Int?
+  purchaseDate DateTime?
+  wearCount    Int       @default(0)
+  lastCareAt   DateTime?
+  nextCareAt   DateTime?
+  story        String?
+  badges       Json?
+  preferences  Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  careReminders CareReminder[]
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([nextCareAt])
+}
+
+model CareReminder {
+  id               String          @id @default(cuid())
+  customerId       String
+  customer         Customer        @relation(fields: [customerId], references: [id])
+  jewelryBoxItemId String?
+  jewelryBoxItem   JewelryBoxItem? @relation(fields: [jewelryBoxItemId], references: [id])
+  type             CareType
+  scheduledDate    DateTime
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  notes            String?
+  status           String          @default("scheduled")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([customerId])
+  @@index([jewelryBoxItemId])
+  @@index([scheduledDate])
+  @@index([status, scheduledDate])
+}
+
+model LuckySignRecord {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  fortuneId  String
+  fortune    Json
+  day        String
+  revealedAt DateTime @default(now())
+
+  @@unique([customerId, day])
+  @@index([customerId])
+  @@index([day])
+}
+model MemberProfile {
+  id               String      @id @default(cuid())
+  customerId       String      @unique
+  customer         Customer    @relation(fields: [customerId], references: [id])
+  level            MemberLevel @default(NEW)
+  growthExp        Int         @default(0)
+  points           Int         @default(0)
+  totalSpentCents  Int         @default(0)
+  totalTryOns      Int         @default(0)
+  totalWearCount   Int         @default(0)
+  badgeCount       Int         @default(0)
+  joinDate         DateTime    @default(now())
+  lastActiveAt     DateTime    @default(now())
+  streakDays       Int         @default(0)
+  maxStreakDays    Int         @default(0)
+  lastLuckySignDay String?
+  levelUpgradedAt  DateTime?
+  metadata         Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([level])
+  @@index([points])
+  @@index([lastActiveAt])
+}
+
+model PointsTransaction {
+  id         String                @id @default(cuid())
+  customerId String
+  customer   Customer              @relation(fields: [customerId], references: [id])
+  type       PointsTransactionType
+  amount     Int
+  balance    Int
+  reason     String?
+  source     Json?
+  createdAt  DateTime              @default(now())
+
+  @@index([customerId])
+  @@index([customerId, createdAt])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model MemberLevelRule {
+  id               String      @id @default(cuid())
+  storeId          String
+  store            Store       @relation(fields: [storeId], references: [id])
+  level            MemberLevel
+  name             String
+  requiredPoints   Int
+  displayName      String
+  displayColor     String
+  displayIcon      String
+  benefits         Json?
+  isActive         Boolean     @default(true)
+  sortOrder        Int         @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([storeId, level])
+  @@index([storeId, isActive])
+}
+
+model ReferralCard {
+  id              String   @id @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  cardName        String
+  shareCode       String   @unique
+  benefits        Json
+  validFrom       DateTime @default(now())
+  validUntil      DateTime
+  status          String   @default("active")
+  shareCount      Int      @default(0)
+  redeemCount     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  events          ReferralEvent[]
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([shareCode])
+  @@index([status, validUntil])
+}
+
+model ReferralEvent {
+  id              String        @id @default(cuid())
+  referralCardId  String
+  referralCard    ReferralCard  @relation(fields: [referralCardId], references: [id])
+  eventType       String
+  visitorId       String?
+  visitorName     String?
+  visitorPhone    String?
+  ip              String?
+  userAgent       String?
+  payload         Json?
+  createdAt       DateTime      @default(now())
+
+  @@index([referralCardId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([visitorId])
+}
+
+enum ItemCategory {
+  RING
+  NECKLACE
+  EARRING
+  BRACELET
+  PENDANT
+  BROOCH
+  WATCH
+  OTHER
+}
+
+enum ConditionGrade {
+  MINT
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum AssessmentStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model TradeInAssessment {
+  id               String   @id @default(cuid())
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+
+  // 基本信息
+  itemName         String
+  category         ItemCategory
+  brandName        String?
+  purchaseYear     Int?
+  purchasePrice    Int?  // 原价 (分)
+
+  // 贵金属信息
+  metalType        String?
+  metalWeightGrams Float?  // 克重
+  metalPurity      Float?  // 成色 0.0-1.0
+
+  // 宝石信息 (可空)
+  gemCategory      String?
+  gemCarat         Float?  // 克拉
+  gemColor         String?  // 颜色等级
+  gemClarity       String?  // 净度等级
+  gemCut           String?  // 切工
+  gemCertificate   String?  // 证书号
+  // 品相评估
+  conditionGrade   ConditionGrade
+  conditionNotes   String?  // 具体说明
+  hasReceipt       Boolean  @default(false)
+  hasCertificate   Boolean  @default(false)
+  hasBox           Boolean  @default(false)
+
+  // 估价明细 (核心输出)
+  basePrice        Int  // 基准价 (分)
+  metalValue       Int  // 贵金属价值
+  gemValue         Int  // 宝石价值
+  conditionDiscount Int  // 品相折扣 (负数分)
+  ageDiscount      Int  // 年限折扣
+  finalEstimate    Int  // 最终估价
+  subsidyAmount    Int  // 换新补贴
+  totalCredit      Int  // 总抵扣额
+
+  // 评估报告
+  reasoning        String  // 评估理由 (JSON 结构)
+  marketReference  Json?   // 市场参考价依据
+
+  // 状态流转
+  status           AssessmentStatus @default(DRAFT)
+  reviewedBy       String?
+  reviewNote       String?
+  reviewedAt       DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([category, conditionGrade])
+}

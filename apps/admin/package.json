@@ -1,0 +1,17 @@
+{
+	"name": "@jewelry/admin",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Admin offline skeleton for customers, try-on sessions, coupons, and devices.",
+	"dependencies": {
+		"@jewelry/shared": "workspace:*"
+	},
+	"scripts": {
+		"dev": "node scripts/serve.mjs",
+		"smoke": "node scripts/smoke.mjs",
+		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"lint": "echo 'lint placeholder: install framework lint dependencies before enabling @jewelry/admin lint'",
+		"test": "echo 'test placeholder: install test runner before enabling @jewelry/admin tests'"
+	}
+}

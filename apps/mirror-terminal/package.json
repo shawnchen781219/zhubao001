@@ -1,0 +1,15 @@
+{
+	"name": "@jewelry/mirror-terminal",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Mirror terminal offline skeleton for device, AR adapter, renderer, and sync boundaries.",
+	"dependencies": {
+		"@jewelry/shared": "workspace:*"
+	},
+	"scripts": {
+		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"lint": "echo 'lint placeholder: install framework lint dependencies before enabling @jewelry/mirror-terminal lint'",
+		"test": "echo 'test placeholder: install test runner before enabling @jewelry/mirror-terminal tests'"
+	}
+}

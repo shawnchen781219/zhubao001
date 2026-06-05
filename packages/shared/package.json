@@ -1,0 +1,19 @@
+{
+	"name": "@jewelry/shared",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Shared cross-app constants, enums, and lightweight DTO placeholders for the jewelry digital system.",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc --project tsconfig.json",
+		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"lint": "echo 'lint placeholder: install lint dependencies before enabling @jewelry/shared lint'",
+		"test": "echo 'test placeholder: no shared package tests yet'"
+	}
+}

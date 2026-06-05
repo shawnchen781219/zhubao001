@@ -1,0 +1,17 @@
+{
+	"name": "@jewelry/h5",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "H5 offline skeleton for gemstone passport and share card pages.",
+	"dependencies": {
+		"@jewelry/shared": "workspace:*"
+	},
+	"scripts": {
+		"dev": "node scripts/serve.mjs",
+		"smoke": "node scripts/smoke.mjs",
+		"typecheck": "tsc --project tsconfig.json --noEmit",
+		"lint": "echo 'lint placeholder: install framework lint dependencies before enabling @jewelry/h5 lint'",
+		"test": "echo 'test placeholder: install test runner before enabling @jewelry/h5 tests'"
+	}
+}

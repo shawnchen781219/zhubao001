@@ -1,0 +1,27 @@
+{
+	"name": "jewelry-digital-system",
+	"version": "0.1.0",
+	"private": true,
+	"packageManager": "pnpm@10.34.1",
+	"scripts": {
+		"dev": "turbo dev",
+		"build": "turbo build",
+		"typecheck": "turbo typecheck",
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"check": "turbo typecheck && biome check ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.16",
+		"turbo": "2.9.16",
+		"typescript": "6.0.3"
+	},
+	"engines": {
+		"node": ">=22.12.0"
+	},
+	"dependencies": {
+		"@prisma/adapter-pg": "^7.8.0",
+		"@types/pg": "^8.20.0",
+		"pg": "^8.21.0"
+	}
+}

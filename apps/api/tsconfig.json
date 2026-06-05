@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"rewriteRelativeImportExtensions": true,
+		"rootDir": "src",
+		"outDir": "dist",
+		"types": []
+	},
+	"include": ["src/**/*.ts"],
+	"references": [{ "path": "../../packages/shared" }]
+}

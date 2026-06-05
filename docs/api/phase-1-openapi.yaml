@@ -1,0 +1,765 @@
+openapi: 3.1.0
+info:
+  title: Jewelry Digital System Phase 1 API
+  version: 0.1.0
+  description: >-
+    Phase 1 contract for the mirror try-on, QR authorization, coupon, and admin follow-up loop.
+    This file is a contract baseline only; no controller or service implementation is created by instruction 004.
+servers:
+  - url: https://api.example.local
+    description: Placeholder API origin
+security: []
+tags:
+  - name: Devices
+  - name: TryOn
+  - name: Coupons
+  - name: Admin
+paths:
+  /devices/register:
+    post:
+      tags: [Devices]
+      summary: Register or rotate credentials for a store device
+      description: Side effect. Requires X-Request-Id and X-Idempotency-Key; the idempotency key is scoped to store code plus device code.
+      security:
+        - DeviceBootstrapAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [storeCode, deviceCode, deviceType, displayName]
+              properties:
+                storeCode:
+                  type: string
+                deviceCode:
+                  type: string
+                deviceType:
+                  $ref: '#/components/schemas/DeviceType'
+                displayName:
+                  type: string
+      responses:
+        '201':
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /devices/heartbeat:
+    post:
+      tags: [Devices]
+      summary: Submit terminal heartbeat
+      description: Side effect. Repeated heartbeats are idempotent by X-Request-Id within a short replay window.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/DeviceSignatureHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appVersion:
+                  type: string
+                localTime:
+                  type: string
+                  format: date-time
+                health:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serverTime, deviceStatus]
+                properties:
+                  serverTime:
+                    type: string
+                    format: date-time
+                  deviceStatus:
+                    $ref: '#/components/schemas/DeviceStatus'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /devices/catalog-sync:
+    get:
+      tags: [Devices]
+      summary: Fetch active product and asset catalog for a device
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/DeviceSignatureHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Catalog delta
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products, serverTime]
+                properties:
+                  serverTime:
+                    type: string
+                    format: date-time
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductCatalogItem'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /try-on/sessions:
+    post:
+      tags: [TryOn]
+      summary: Create an anonymous try-on session
+      description: Side effect. Requires X-Idempotency-Key derived from device session nonce to prevent duplicate sessions on terminal retry.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/DeviceSignatureHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [anonymousId, startedAt]
+              properties:
+                anonymousId:
+                  type: string
+                startedAt:
+                  type: string
+                  format: date-time
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Try-on session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TryOnSession'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /try-on/sessions/{sessionId}/items:
+    post:
+      tags: [TryOn]
+      summary: Add a product selection to a try-on session
+      description: Side effect. X-Idempotency-Key is required per selected product event.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdPath'
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/DeviceSignatureHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, selectedAt]
+              properties:
+                productId:
+                  type: string
+                selectedAt:
+                  type: string
+                  format: date-time
+                durationMs:
+                  type: integer
+                  minimum: 0
+                position:
+                  type: string
+                renderConfig:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Try-on item accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TryOnItem'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /try-on/sessions/{sessionId}/qr-shown:
+    post:
+      tags: [TryOn]
+      summary: Mark that the QR code was shown on the mirror
+      description: Side effect. Idempotent by sessionId plus X-Idempotency-Key; returns the same QR token metadata on retry.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdPath'
+        - $ref: '#/components/parameters/DeviceIdHeader'
+        - $ref: '#/components/parameters/DeviceSignatureHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: QR marked as shown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionId, qrPayload, expiresAt]
+                properties:
+                  sessionId:
+                    type: string
+                  qrPayload:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /try-on/sessions/{sessionId}/scan:
+    post:
+      tags: [TryOn]
+      summary: Mark that a customer scanned a mirror QR code
+      description: Side effect. Client authenticated. Idempotent by sessionId plus authenticated customer plus X-Idempotency-Key.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdPath'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scanSource:
+                  type: string
+                  enum: [WECHAT_MINIAPP, H5]
+      responses:
+        '200':
+          description: Scan accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TryOnSession'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /try-on/sessions/{sessionId}/authorize-media:
+    post:
+      tags: [TryOn]
+      summary: Authorize selected try-on media for upload or sharing
+      description: Side effect. Requires customer BearerAuth and X-Idempotency-Key. Raw biometric streams are not accepted.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdPath'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mediaType, localMediaKey, authorizationScope]
+              properties:
+                mediaType:
+                  $ref: '#/components/schemas/MediaType'
+                localMediaKey:
+                  type: string
+                authorizationScope:
+                  type: string
+                  enum: [UPLOAD_PRIVATE, SHARE_CARD]
+      responses:
+        '200':
+          description: Media authorization accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+  /coupons/claim:
+    post:
+      tags: [Coupons]
+      summary: Claim a first-visit or campaign coupon
+      description: Side effect. Requires BearerAuth and X-Idempotency-Key. Duplicate scans must return the existing coupon or IDEMPOTENCY_CONFLICT.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [templateCode]
+              properties:
+                templateCode:
+                  type: string
+                sourceTryOnSessionId:
+                  type: string
+      responses:
+        '201':
+          description: Coupon claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /coupons/{couponId}/redeem:
+    post:
+      tags: [Coupons]
+      summary: Redeem a coupon in store
+      description: Side effect. Requires StaffBearerAuth and X-Idempotency-Key; redeeming the same coupon twice must be rejected or return the existing redemption result.
+      security:
+        - StaffBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CouponIdPath'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                redemptionNote:
+                  type: string
+      responses:
+        '200':
+          description: Coupon redeemed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/customers:
+    get:
+      tags: [Admin]
+      summary: List customers for staff follow-up
+      security:
+        - StaffBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Customer list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCustomers'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/try-on-sessions:
+    get:
+      tags: [Admin]
+      summary: List try-on sessions for operations follow-up
+      security:
+        - StaffBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Try-on sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedTryOnSessions'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/coupons:
+    get:
+      tags: [Admin]
+      summary: List issued coupons
+      security:
+        - StaffBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Coupon list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCoupons'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+  /admin/devices:
+    get:
+      tags: [Admin]
+      summary: List store devices and heartbeat status
+      security:
+        - StaffBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/DeviceStatus'
+      responses:
+        '200':
+          description: Device list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDevices'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  securitySchemes:
+    DeviceBootstrapAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Bootstrap-Token
+      description: Temporary provisioning token for first registration only.
+    DeviceSignatureAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Signature
+      description: HMAC signature derived from the stored device secret hash; must be paired with X-Device-Id and X-Request-Id.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: CustomerJWT
+      description: Customer authentication placeholder for WeChat miniapp or H5.
+    StaffBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: StaffJWT
+      description: Staff/admin authentication placeholder.
+  parameters:
+    DeviceIdHeader:
+      name: X-Device-Id
+      in: header
+      required: true
+      schema:
+        type: string
+    DeviceSignatureHeader:
+      name: X-Device-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+    RequestIdHeader:
+      name: X-Request-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+    IdempotencyKeyHeader:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+    SessionIdPath:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+    CouponIdPath:
+      name: couponId
+      in: path
+      required: true
+      schema:
+        type: string
+    PageQuery:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeQuery:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    ErrorResponse:
+      description: Unified error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+          example: TRY_ON_SESSION_NOT_FOUND
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    DeviceType:
+      type: string
+      enum: [MIRROR_TERMINAL, CUSTOM_PAD, ADMIN_TERMINAL, DISPLAY_SCREEN]
+    DeviceStatus:
+      type: string
+      enum: [PENDING_ACTIVATION, ACTIVE, SUSPENDED, RETIRED]
+    MediaType:
+      type: string
+      enum: [PHOTO, VIDEO, POSTER, THUMBNAIL]
+    CouponStatus:
+      type: string
+      enum: [ISSUED, LOCKED, REDEEMED, EXPIRED, VOIDED]
+    DeviceRegistrationResponse:
+      type: object
+      required: [deviceId, deviceSecret, status]
+      properties:
+        deviceId:
+          type: string
+        deviceSecret:
+          type: string
+          description: Returned only once at registration; store only a hash server-side.
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+    ProductCatalogItem:
+      type: object
+      required: [productId, sku, name, type, assets]
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        assets:
+          type: array
+          items:
+            type: object
+            required: [kind, storageKey]
+            properties:
+              kind:
+                type: string
+              storageKey:
+                type: string
+    TryOnSession:
+      type: object
+      required: [id, storeId, deviceId, anonymousId, status, startedAt]
+      properties:
+        id:
+          type: string
+        storeId:
+          type: string
+        deviceId:
+          type: string
+        customerId:
+          type:
+            - string
+            - "null"
+        anonymousId:
+          type: string
+        status:
+          type: string
+          enum: [ANONYMOUS, QR_SHOWN, SCANNED, AUTHORIZED, COMPLETED, EXPIRED]
+        startedAt:
+          type: string
+          format: date-time
+        scannedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        authorizedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    TryOnItem:
+      type: object
+      required: [id, tryOnSessionId, productId, selectedAt]
+      properties:
+        id:
+          type: string
+        tryOnSessionId:
+          type: string
+        productId:
+          type: string
+        selectedAt:
+          type: string
+          format: date-time
+    MediaAsset:
+      type: object
+      required: [id, type, storageKey, authorizationStatus]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/MediaType'
+        storageKey:
+          type: string
+        authorizationStatus:
+          type: string
+          enum: [LOCAL_TEMP_ONLY, AUTHORIZED_TO_UPLOAD, UPLOADED_PRIVATE, AUTHORIZED_TO_SHARE, EXPIRED, DELETED]
+        expiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    Coupon:
+      type: object
+      required: [id, templateId, status, issuedAt, expiresAt]
+      properties:
+        id:
+          type: string
+        templateId:
+          type: string
+        customerId:
+          type:
+            - string
+            - "null"
+        sourceTryOnSessionId:
+          type:
+            - string
+            - "null"
+        status:
+          $ref: '#/components/schemas/CouponStatus'
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    CustomerSummary:
+      type: object
+      required: [id, status, createdAt]
+      properties:
+        id:
+          type: string
+        displayName:
+          type:
+            - string
+            - "null"
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    DeviceSummary:
+      type: object
+      required: [id, code, type, status]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        type:
+          $ref: '#/components/schemas/DeviceType'
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        lastHeartbeatAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    PageMeta:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    PagedCustomers:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSummary'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+    PagedTryOnSessions:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TryOnSession'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+    PagedCoupons:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coupon'
+        page:
+          $ref: '#/components/schemas/PageMeta'
+    PagedDevices:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceSummary'
+        page:
+          $ref: '#/components/schemas/PageMeta'

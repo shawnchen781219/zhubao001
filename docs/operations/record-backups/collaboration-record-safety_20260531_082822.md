@@ -1,0 +1,104 @@
+# 协作记录追加安全规范
+
+## 适用范围
+
+本规范适用于 Hermes 对以下三个协作文件的写入操作：
+
+- `/Users/shawnchen78/Documents/珠宝店数字化/执行文件.md`
+- `/Users/shawnchen78/Documents/珠宝店数字化/状态看板.md`
+- `/Users/shawnchen78/Documents/珠宝店数字化/指令文件.md`（仅允许状态同步，禁止修改指令内容）
+
+## 三步写入流程
+
+### 第一步：备份
+
+在追加或修改任何协作文件之前，必须先创建时间戳备份：
+
+```bash
+# 在文件所在目录执行
+BACKUP_DIR="docs/operations/record-backups"
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+cp 执行文件.md "$BACKUP_DIR/执行文件_$TIMESTAMP.md"
+cp 状态看板.md "$BACKUP_DIR/状态看板_$TIMESTAMP.md"
+```
+
+如果 `docs/operations/record-backups/` 不可用，在同目录下创建 `.bak` 文件作为最小备份：
+
+```bash
+cp 执行文件.md 执行文件.md.bak.$(date +%Y%m%d_%H%M%S)
+cp 状态看板.md 状态看板.md.bak.$(date +%Y%m%d_%H%M%S)
+```
+
+### 第二步：追加（仅追加，禁止覆盖）
+
+- 执行文件**只允许追加**新的 `## 执行NNN` 或 `## 环境监控记录（...）`。
+- 状态看板只允许更新时间戳、状态字段和本次执行摘要，不得删除历史里程碑、角色分工或历史决策记录。
+- 使用工具时严禁混淆 `write_file` 与追加意图：
+  - `write_file` 会**覆盖整个文件**，仅用于创建新文件。
+  - 对已有文件追加内容时，必须使用 `patch` 或 Python `open(..., 'a')` 或 `cat >>`。
+
+### 第三步：校验
+
+写入后必须执行以下校验：
+
+```bash
+# 1. 确保文件大小没有突然缩小（指示覆盖故障）
+ls -la 执行文件.md 状态看板.md
+
+# 2. 确保最新执行编号没有倒退
+grep -n "^## 执行" 执行文件.md | tail -5
+
+# 3. 确保最后一行是最新记录
+tail -20 执行文件.md
+```
+
+校验要求：
+- `执行文件.md` 的最后一个 `## 执行NNN` 或 `## 环境监控记录（...）` 必须是当前操作的记录。
+- 文件大小必须**大于等于**备份时的大小。如果文件大小突然显著变小，立即中止并从备份恢复。
+- 如果发现覆盖故障，立即使用备份恢复文件：
+  ```bash
+  cp 执行文件.md.bak.20260531_064700 执行文件.md
+  ```
+
+## 工具使用禁忌
+
+| 工具 | 禁忌场景 | 原因 |
+|------|----------|------|
+| `write_file` | 对已有协作文件执行 "追加" | 会完全覆盖文件，销毁所有历史记录 |
+| `patch` 带有重复模式 | 在包含成百上千个 `---` 分隔符或相同结构的执行文件上使用 | 匹配失败或插入到错误位置，甚至破坏历史记录 |
+| `terminal` `>` 重定向 | 写入协作文件 | `>` 会覆盖，必须使用 `>>` 追加 |
+
+## 修复工具
+
+如果 `patch` 失败或存在覆盖风险，使用以下 Python 追加模式：
+
+```python
+import os
+
+path = "/Users/shawnchen78/Documents/珠宝店数字化/执行文件.md"
+new_section = """
+
+## 执行NNN
+
+...
+"""
+
+with open(path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# 确保文件不会缩小
+original_size = os.path.getsize(path)
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content.rstrip() + new_section)
+
+new_size = os.path.getsize(path)
+assert new_size >= original_size, f"文件大小倒退: {original_size} -> {new_size}"
+```
+
+## 责任
+
+- Hermes 作为环境管理员和执行记录回填员，对协作文件的完整性负责。
+- 如果意外覆盖发生，必须立即停止所有写入操作，检查备份，尝试恢复。
+- 如果无法恢复，必须在执行文件中清晰记录："重建原因、恢复来源、缺失范围"。

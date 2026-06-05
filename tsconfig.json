@@ -1,0 +1,24 @@
+{
+	"extends": "./tsconfig.base.json",
+	"files": [],
+	"references": [
+		{
+			"path": "./packages/shared"
+		},
+		{
+			"path": "./apps/api"
+		},
+		{
+			"path": "./apps/miniapp"
+		},
+		{
+			"path": "./apps/admin"
+		},
+		{
+			"path": "./apps/mirror-terminal"
+		},
+		{
+			"path": "./apps/h5"
+		}
+	]
+}
