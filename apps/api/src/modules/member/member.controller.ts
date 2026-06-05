@@ -60,6 +60,18 @@ export class AdminMemberController {
 		return this.svc.history(id, limit ? Number.parseInt(limit, 10) : 50);
 	}
 
+	@Get(":customerId/level-history")
+	async levelHistory(
+		@Param("customerId") id: string,
+		@Query("limit") limit?: string,
+	) {
+		const items = await this.svc.levelHistory(
+			id,
+			limit ? Number.parseInt(limit, 10) : 50,
+		);
+		return { items };
+	}
+
 	@Post(":customerId/grant")
 	async grant(
 		@Param("customerId") id: string,

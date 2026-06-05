@@ -567,6 +567,9 @@ async function showMemberDetail(id) {
       <div class="detail-section"><div class="detail-title">享有权益</div>
         ${(benefits[p.level || "NEW"] || []).map(b => `<div class="mini-card"><div class="mini-meta">✓ ${b}</div></div>`).join("")}
       </div>
+      <div class="detail-section"><div class="detail-title">等级变更记录</div>
+        <div id="mem-level-history-list" class="mem-history-loading">加载中…</div>
+      </div>
       <div class="detail-section"><div class="detail-title">积分历史</div>
         <div id="mem-history-list" class="mem-history-loading">加载中…</div>
       </div>
@@ -579,9 +582,48 @@ async function showMemberDetail(id) {
       </div>`;
 
     loadMemberHistory(id);
+    loadMemberLevelHistory(id);
   } catch (e) {
     console.error("Failed to load member detail:", e);
     document.getElementById("drawer-body").innerHTML = '<div class="empty-state">加载失败</div>';
+  }
+}
+async function loadMemberLevelHistory(id) {
+  const box = document.getElementById("mem-level-history-list");
+  if (!box) return;
+  try {
+    const resp = await api(`/admin/members/${id}/level-history?limit=20`);
+    const items = resp?.items || [];
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-state">暂无等级变更记录</div>';
+      return;
+    }
+    const dirLabel = { UPGRADE: "升级", DOWNGRADE: "降级", INITIAL: "初始" };
+    const dirClass = { UPGRADE: "admin-lh-up", DOWNGRADE: "admin-lh-down", INITIAL: "admin-lh-init" };
+    const dirIcon = { UPGRADE: "⬆", DOWNGRADE: "⬇", INITIAL: "★" };
+    box.innerHTML = items.map((log) => {
+      const benefits = Array.isArray(log.earnedBenefits) ? log.earnedBenefits : [];
+      const fromColor = log.fromLevelColor || "#6BA36B";
+      const toColor = log.toLevelColor || "#C9A24E";
+      return `
+        <div class="admin-lh-row ${dirClass[log.direction] || ''}">
+          <div class="admin-lh-icon">${dirIcon[log.direction] || '○'}</div>
+          <div class="admin-lh-body">
+            <div class="admin-lh-title">
+              ${dirLabel[log.direction] || '变更'}:
+              ${log.fromLevelName ? `<span class="admin-lh-from" style="color:${fromColor}">${log.fromLevelName}</span> → ` : ""}<span class="admin-lh-to" style="color:${toColor}">${log.toLevelName}</span>
+            </div>
+            <div class="admin-lh-meta">
+              ${log.toPoints.toLocaleString()} 积分 · ${formatDate(log.createdAt)}
+              ${log.note ? ` · <span class="admin-lh-note">${log.note}</span>` : ""}
+            </div>
+            ${benefits.length ? `<div class="admin-lh-benefits">${benefits.slice(0, 3).map(b => `<span class="admin-lh-benefit">✓ ${b}</span>`).join("")}${benefits.length > 3 ? `<span class="admin-lh-benefit more">+${benefits.length - 3} 项</span>` : ""}</div>` : ""}
+          </div>
+        </div>`;
+    }).join("");
+  } catch (e) {
+    console.error("Failed to load level history:", e);
+    box.innerHTML = '<div class="empty-state">加载失败</div>';
   }
 }
 async function loadMemberHistory(id) {

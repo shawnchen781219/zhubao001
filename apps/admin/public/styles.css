@@ -1730,3 +1730,114 @@ code {
   font-size: 12px;
   color: var(--text-secondary, #9ca3af);
 }
+
+/* ===== Admin Member Level History ===== */
+.admin-lh-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-surface, #111827);
+  border: 1px solid var(--border, #374151);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  align-items: flex-start;
+  transition: background 0.15s;
+}
+
+.admin-lh-row:hover {
+  background: var(--bg-hover, #1f2937);
+}
+
+.admin-lh-row.admin-lh-up {
+  border-left: 3px solid #4ade80;
+}
+
+.admin-lh-row.admin-lh-down {
+  border-left: 3px solid #f87171;
+}
+
+.admin-lh-row.admin-lh-init {
+  border-left: 3px solid var(--gold, #C9A24E);
+}
+
+.admin-lh-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(201, 162, 78, 0.1);
+  color: var(--gold, #C9A24E);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.admin-lh-up .admin-lh-icon {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.admin-lh-down .admin-lh-icon {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.admin-lh-init .admin-lh-icon {
+  background: rgba(201, 162, 78, 0.15);
+  color: var(--gold, #C9A24E);
+}
+
+.admin-lh-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-lh-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #f9fafb);
+  margin-bottom: 4px;
+}
+
+.admin-lh-from {
+  color: var(--text-secondary, #9ca3af);
+  font-weight: 500;
+}
+
+.admin-lh-to {
+  font-weight: 700;
+}
+
+.admin-lh-meta {
+  font-size: 11px;
+  color: var(--text-secondary, #9ca3af);
+  margin-bottom: 6px;
+}
+
+.admin-lh-note {
+  color: var(--gold-dim, #D4AF37);
+  font-style: italic;
+}
+
+.admin-lh-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.admin-lh-benefit {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.admin-lh-benefit.more {
+  background: rgba(156, 163, 175, 0.15);
+  color: var(--text-secondary, #9ca3af);
+}
+
