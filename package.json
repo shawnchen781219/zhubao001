@@ -9,7 +9,13 @@
 		"typecheck": "turbo typecheck",
 		"lint": "biome check .",
 		"format": "biome format --write .",
-		"check": "turbo typecheck && biome check ."
+		"check": "turbo typecheck && biome check .",
+		"deploy": "./scripts/deploy.sh all",
+		"deploy:api": "./scripts/deploy.sh api",
+		"deploy:h5": "./scripts/deploy.sh h5",
+		"deploy:admin": "./scripts/deploy.sh admin",
+		"deploy:prisma": "./scripts/deploy.sh prisma",
+		"deploy:quick": "./scripts/deploy.sh api --skip-build --skip-commit"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.16",
