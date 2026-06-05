@@ -1510,16 +1510,46 @@ function tradeInStep2Html() {
 	const metals = _tradeInRef.metalTypes || [];
 	const d = _tradeInData;
 	const metalOptions = metals.map((m) => `<option value="${m.value}" ${d.metalType === m.value ? "selected" : ""}>${m.label}</option>`).join("");
+	// 显式成色类型（18K/14K/9K、PT950/900、925/999银、钯金）基准价已含对应纯度
+	const EXPLICIT_KARAT = new Set(["GOLD_24K", "GOLD_18K", "GOLD_14K", "GOLD_9K", "PLATINUM_PT950", "PLATINUM_PT900", "SILVER_999", "SILVER_925", "PALLADIUM"]);
+	const isExplicit = d.metalType && EXPLICIT_KARAT.has(d.metalType);
 	return `
 		<div class="tradein-step-title">🏅 贵金属信息</div>
 		<div class="tradein-field"><label class="tradein-label">金属材质</label>
-			<select class="tradein-select" id="ti-metalType"><option value="">- 选填 -</option>${metalOptions}</select></div>
+			<select class="tradein-select" id="ti-metalType" onchange="onMetalTypeChange()"><option value="">- 选填 -</option>${metalOptions}</select></div>
 		<div class="tradein-field"><label class="tradein-label">金属克重 (g)</label>
 			<input type="number" class="tradein-input" id="ti-metalWeightGrams" placeholder="例：5.0" step="0.01" min="0" value="${d.metalWeightGrams || ""}"></div>
-		<div class="tradein-field"><label class="tradein-label">成色百分比 (0-100%)</label>
-			<input type="number" class="tradein-input" id="ti-metalPurity" placeholder="75 → 75%" step="1" min="0" max="100" value="${d.metalPurity !== undefined && d.metalPurity !== null ? Math.round(d.metalPurity * 100) : ""}"></div>
-		<div class="tradein-hint">💡 18K金=75%，14K金=58.5%，925银=92.5%</div>`;
+		<div class="tradein-field" id="ti-metalPurity-wrap" style="${isExplicit ? "display:none" : ""}">
+			<label class="tradein-label">成色百分比 (0-100%)</label>
+			<input type="number" class="tradein-input" id="ti-metalPurity" placeholder="75 → 75%" step="1" min="0" max="100" value="${d.metalPurity !== undefined && d.metalPurity !== null ? Math.round(d.metalPurity * 100) : ""}">
+		</div>
+		<div class="tradein-hint" id="ti-metal-hint">
+			${isExplicit ? `✓ 已按 ${metals.find(m => m.value === d.metalType)?.label || d.metalType} 标准纯度计价，无需再手填` : `💡 若选择了 18K/14K/PT950 等具体规格，无需填写成色；否则请填写（如 75 表示 75%）`}
+		</div>`;
 }
+
+// 金属类型变化时切换成色字段可见性
+window.onMetalTypeChange = function onMetalTypeChange() {
+	const val = document.getElementById("ti-metalType")?.value || "";
+	_tradeInData.metalType = val || undefined;
+	const wrap = document.getElementById("ti-metalPurity-wrap");
+	const hint = document.getElementById("ti-metal-hint");
+	const EXPLICIT_KARAT = new Set(["GOLD_24K", "GOLD_18K", "GOLD_14K", "GOLD_9K", "PLATINUM_PT950", "PLATINUM_PT900", "SILVER_999", "SILVER_925", "PALLADIUM"]);
+	const isExplicit = val && EXPLICIT_KARAT.has(val);
+	if (wrap) wrap.style.display = isExplicit ? "none" : "";
+	const metals = _tradeInRef.metalTypes || [];
+	if (hint) {
+		hint.innerHTML = isExplicit
+			? `✓ 已按 ${metals.find(m => m.value === val)?.label || val} 标准纯度计价，无需再手填`
+			: `💡 若选择了 18K/14K/PT950 等具体规格，无需填写成色；否则请填写（如 75 表示 75%）`;
+	}
+	// 显式类型时清空成色字段避免双重折扣
+	if (isExplicit) {
+		const puEl = document.getElementById("ti-metalPurity");
+		if (puEl) puEl.value = "";
+		_tradeInData.metalPurity = undefined;
+	}
+};
 
 function tradeInStep3Html() {
 	const gems = _tradeInRef.gemCategories || [];
@@ -1586,11 +1616,18 @@ function tradeInSaveCurrent() {
 		const pp = Number.parseFloat(v("ti-purchasePrice"));
 		_tradeInData.purchasePrice = Number.isFinite(pp) && pp > 0 ? Math.round(pp * 100) : undefined;
 	} else if (cur === 2) {
-		_tradeInData.metalType = v("ti-metalType") || undefined;
+		const metalType = v("ti-metalType") || undefined;
+		_tradeInData.metalType = metalType;
 		const wg = Number.parseFloat(v("ti-metalWeightGrams"));
 		_tradeInData.metalWeightGrams = Number.isFinite(wg) && wg > 0 ? wg : undefined;
-		const pu = Number.parseFloat(v("ti-metalPurity"));
-		_tradeInData.metalPurity = Number.isFinite(pu) && pu >= 0 && pu <= 100 ? pu / 100 : undefined;
+		// 仅当非显式成色类型时才读 purity（已由 onMetalTypeChange 控制 UI）
+		const EXPLICIT_KARAT = new Set(["GOLD_24K", "GOLD_18K", "GOLD_14K", "GOLD_9K", "PLATINUM_PT950", "PLATINUM_PT900", "SILVER_999", "SILVER_925", "PALLADIUM"]);
+		if (metalType && EXPLICIT_KARAT.has(metalType)) {
+			_tradeInData.metalPurity = undefined;
+		} else {
+			const pu = Number.parseFloat(v("ti-metalPurity"));
+			_tradeInData.metalPurity = Number.isFinite(pu) && pu >= 0 && pu <= 100 ? pu / 100 : undefined;
+		}
 	} else if (cur === 3) {
 		_tradeInData.gemCategory = v("ti-gemCategory") || undefined;
 		const ct = Number.parseFloat(v("ti-gemCarat"));

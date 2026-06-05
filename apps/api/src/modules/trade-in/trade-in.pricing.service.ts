@@ -37,17 +37,31 @@ export interface TradeInInput {
 @Injectable()
 export class TradeInPricingService {
 	// 贵金属基准价 (元/克) - 2026年6月市场价
+	// purity 字段表示该类型对应的标准纯度（用于识别"显式成色类型"）
 	private readonly metalPrices: Record<string, number> = {
-		GOLD_24K: 580,
-		GOLD_18K: 435,
-		GOLD_14K: 340,
-		GOLD_9K: 215,
-		PLATINUM_PT950: 280,
-		PLATINUM_PT900: 265,
-		SILVER_999: 6.5,
-		SILVER_925: 5.8,
-		PALLADIUM: 220,
+		GOLD_24K: 590,
+		GOLD_18K: 445,
+		GOLD_14K: 345,
+		GOLD_9K: 220,
+		PLATINUM_PT950: 285,
+		PLATINUM_PT900: 270,
+		SILVER_999: 7.0,
+		SILVER_925: 6.5,
+		PALLADIUM: 225,
 	};
+
+	// 显式成色类型：基准价已包含该类纯度，不应再乘以 metalPurity
+	private readonly explicitKaratTypes: Set<string> = new Set([
+		"GOLD_24K",
+		"GOLD_18K",
+		"GOLD_14K",
+		"GOLD_9K",
+		"PLATINUM_PT950",
+		"PLATINUM_PT900",
+		"SILVER_999",
+		"SILVER_925",
+		"PALLADIUM",
+	]);
 
 	// 宝石基准价 (元/克拉) - 中等品质
 	private readonly gemstoneBasePrices: Record<string, number> = {
@@ -133,8 +147,10 @@ export class TradeInPricingService {
 			const metalPricePerGram = this.metalPrices[input.metalType] || 0;
 			metalValue = metalPricePerGram * input.metalWeightGrams;
 
-			// 成色修正
+			// 成色修正：仅当类型不是显式成色类型时才应用
+			// 显式类型（如 GOLD_18K）的基准价已包含对应纯度，不再重复打折
 			if (
+				!this.explicitKaratTypes.has(input.metalType) &&
 				input.metalPurity &&
 				input.metalPurity > 0 &&
 				input.metalPurity <= 1
