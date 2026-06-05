@@ -1244,31 +1244,228 @@ function toggleCmp(id) {
 }
 
 // ===== PAGE: BLIND BOX =====
-function renderBlindBox() {
-	const opened = sessionStorage.getItem("blindbox_opened");
-	const box = document.getElementById("blindbox-area");
-	if (opened) {
-		const p = products[Math.floor(Math.random() * products.length)];
-		box.innerHTML = `<div class="blindbox-result">
-      <div class="blindbox-icon">🎉</div>
-      <div class="blindbox-title">恭喜获得</div>
-      <div class="blindbox-img"><img src="${getImg(p)}" alt="${p.name}" loading="lazy"/></div>
-      <div class="blindbox-name">${p.name}</div>
-      <div class="blindbox-desc">${p.description?.slice(0, 50) || ""}</div>
-      <div class="blindbox-value">${formatPrice(p.priceCents)}</div>
-      <button class="btn btn-gold btn-lg btn-full" onclick="selectedProductId='${p.id}';goTo('passport')" type="button" style="margin-top:20px">查看详情</button>
-      <p class="tradein-note">* 盲盒体验仅供展示，不代表真实库存或购买</p>
-    </div>`;
+let _bbCache = { pool: null, items: [], history: [] };
+
+async function renderBlindBox() {
+	const area = document.getElementById("blindbox-area");
+	const historyArea = document.getElementById("blindbox-history");
+	area.innerHTML = '<div class="bb-loading">⏳ 正在加载盲盒…</div>';
+	if (historyArea) historyArea.innerHTML = "";
+
+	// 1) 加载今日盲盒池
+	try {
+		const resp = await api("/blind-box/today");
+		_bbCache.pool = resp.pool || null;
+		_bbCache.items = resp.items || [];
+	} catch (e) {
+		console.warn("Blind-box today API failed", e);
+		_bbCache.pool = null;
+		_bbCache.items = [];
+	}
+
+	// 2) 加载开箱历史
+	try {
+		const histResp = await api("/blind-box/history");
+		_bbCache.history = histResp?.records || [];
+	} catch (e) {
+		console.warn("Blind-box history API failed", e);
+		_bbCache.history = [];
+	}
+
+	if (!_bbCache.pool) {
+		area.innerHTML = `
+			<div class="bb-empty">
+				<div class="bb-empty-icon">📦</div>
+				<div class="bb-empty-title">今日暂无盲盒活动</div>
+				<div class="bb-empty-sub">管理员可在后台配置「今日盲盒」奖池</div>
+			</div>`;
 	} else {
-		box.innerHTML = `<div class="blindbox-unopened" onclick="openBlindBox()">
-      <div class="blindbox-box">🎁</div>
-      <div class="blindbox-hint">点击开启<br/>发现限定款</div>
-    </div>`;
+		const pool = _bbCache.pool;
+		const items = _bbCache.items;
+		const totalVisible = items.length;
+		const rarityBadge = {
+			COMMON: '<span class="bb-rarity common">普通</span>',
+			RARE: '<span class="bb-rarity rare">稀有</span>',
+			EPIC: '<span class="bb-rarity epic">史诗</span>',
+			LEGENDARY: '<span class="bb-rarity legendary">传说</span>',
+		};
+
+		// 历史已开次数 vs 每日限制
+		const todayOpens = _bbCache.history.filter((h) => {
+			const d = new Date(h.openedAt);
+			const today = new Date();
+			return (
+				d.getDate() === today.getDate() &&
+				d.getMonth() === today.getMonth() &&
+				d.getFullYear() === today.getFullYear()
+			);
+		}).length;
+		const reachedLimit = todayOpens >= pool.maxOpensPerDay;
+
+		// 已开出的奖品 ids 用于"已获取"标识
+		const obtainedIds = new Set(_bbCache.history.map((h) => h.itemId));
+
+		area.innerHTML = `
+			<div class="bb-pool-card">
+				<div class="bb-pool-header">
+					<h3 class="bb-pool-title">${escapeHtml(pool.title)}</h3>
+					${pool.openPrice > 0
+						? `<span class="bb-pool-price">💰 ${pool.openPrice} 积分/次</span>`
+						: '<span class="bb-pool-price free">✨ 免费开盒</span>'}
+				</div>
+				${pool.description ? `<div class="bb-pool-desc">${escapeHtml(pool.description)}</div>` : ""}
+				<div class="bb-pool-meta">
+					<span>🎁 ${totalVisible} 款奖品</span>
+					<span>🔁 今日限开 ${pool.maxOpensPerDay} 次</span>
+					<span>✅ 已开 ${todayOpens} 次</span>
+				</div>
+
+				<h4 class="bb-section-title">奖品预览（未公开概率）</h4>
+				<div class="bb-items-grid">
+					${items.map((it) => `
+						<div class="bb-item ${obtainedIds.has(it.id) ? 'obtained' : ''}">
+							<div class="bb-item-img">
+								${it.image
+									? `<img src="${it.image}" alt="${escapeHtml(it.customName)}" loading="lazy"/>`
+									: (it.product?.assets?.[0]?.storageKey
+										? `<img src="/assets/${it.product.assets[0].storageKey}" alt="" loading="lazy"/>`
+										: '<div class="bb-item-placeholder">🎁</div>')}
+							</div>
+							<div class="bb-item-name">${escapeHtml(it.customName)}</div>
+							${obtainedIds.has(it.id) ? '<div class="bb-item-obtained">已获得</div>' : "<div class=\"bb-item-secret\">?</div>"}
+						</div>
+					`).join("")}
+				</div>
+
+				<button class="btn btn-gold btn-lg btn-full bb-open-btn" id="bb-open-btn" onclick="openBlindBox()" ${reachedLimit ? "disabled" : ""} type="button">
+					${reachedLimit ? `🔒 今日已开满（${pool.maxOpensPerDay}/${pool.maxOpensPerDay}）` : "🎁 立即开盒"}
+				</button>
+				${reachedLimit ? '<div class="bb-limit-hint">明天再来，发现新惊喜！</div>' : ""}
+			</div>
+		`;
+	}
+
+	// 渲染历史
+	if (historyArea) {
+		if (_bbCache.history.length === 0) {
+			historyArea.innerHTML = `
+				<div class="bb-history-empty">
+					<div class="bb-history-empty-icon">📜</div>
+					<div>还没有开箱记录</div>
+				</div>
+			`;
+		} else {
+			const rarityBadge = {
+				COMMON: '<span class="bb-rarity common">普通</span>',
+				RARE: '<span class="bb-rarity rare">稀有</span>',
+				EPIC: '<span class="bb-rarity epic">史诗</span>',
+				LEGENDARY: '<span class="bb-rarity legendary">传说</span>',
+			};
+			historyArea.innerHTML = `
+				<h4 class="bb-section-title">我的开箱记录</h4>
+				<div class="bb-history-list">
+					${_bbCache.history.slice(0, 20).map((h) => `
+						<div class="bb-history-row">
+							<div class="bb-hist-img">
+								${h.itemImage
+									? `<img src="${h.itemImage}" alt="" loading="lazy"/>`
+									: '<div class="bb-item-placeholder small">🎁</div>'}
+							</div>
+							<div class="bb-hist-body">
+								<div class="bb-hist-name">
+									${escapeHtml(h.itemName)}
+									${rarityBadge[h.itemRarity] || ""}
+								</div>
+								<div class="bb-hist-meta">
+									${formatDate(h.openedAt)}
+									${h.pointsSpent > 0 ? ` · 花费 ${h.pointsSpent} 积分` : " · 免费"}
+								</div>
+							</div>
+						</div>
+					`).join("")}
+				</div>
+			`;
+		}
 	}
 }
-function openBlindBox() {
-	sessionStorage.setItem("blindbox_opened", "1");
-	renderBlindBox();
+
+async function openBlindBox() {
+	const btn = document.getElementById("bb-open-btn");
+	if (!btn || btn.disabled) return;
+
+	// 加锁防止连击
+	btn.disabled = true;
+	btn.textContent = "⏳ 开箱中...";
+
+	const area = document.getElementById("blindbox-area");
+	try {
+		const result = await api("/blind-box/open", { method: "POST" });
+		if (!result || !result.success) {
+			btn.disabled = false;
+			btn.textContent = "🎁 立即开盒";
+			if (result?.success === false) {
+				// 服务端返回 success:false
+				showToast(result.reasoning?.[0] || "开盒失败");
+			}
+			return;
+		}
+
+		// 成功：渲染结果
+		const rarityBadge = {
+			COMMON: '<span class="bb-rarity common">普通</span>',
+			RARE: '<span class="bb-rarity rare">稀有</span>',
+			EPIC: '<span class="bb-rarity epic">史诗</span>',
+			LEGENDARY: '<span class="bb-rarity legendary">传说</span>',
+		};
+
+		// 播放开箱动画
+		area.innerHTML = `
+			<div class="bb-reveal-overlay">
+				<div class="bb-reveal-sparkles">✨</div>
+				<div class="bb-reveal-card ${result.itemRarity?.toLowerCase() || "common"}">
+					<div class="bb-reveal-kicker">🎉 恭喜获得</div>
+					<div class="bb-reveal-img">
+						${result.itemImage
+							? `<img src="${result.itemImage}" alt=""/>`
+							: (result.product?.assets?.[0]?.storageKey
+								? `<img src="/assets/${result.product.assets[0].storageKey}" alt=""/>`
+								: '<div class="bb-item-placeholder big">🎁</div>')}
+					</div>
+					<div class="bb-reveal-name">
+						${escapeHtml(result.itemName || "神秘奖品")}
+						${rarityBadge[result.itemRarity] || ""}
+					</div>
+					${result.product?.priceCents
+						? `<div class="bb-reveal-value">价值 ${formatPrice(result.product.priceCents)}</div>`
+						: ""}
+					${result.points?.spent
+						? `<div class="bb-reveal-points">💰 消耗 ${result.points.spent} 积分 · 余额 ${result.points.newBalance}</div>`
+						: ""}
+					<div class="bb-reveal-actions">
+						${result.product
+							? `<button class="btn btn-gold btn-lg" onclick="selectedProductId='${result.product.id}';goTo('passport')" type="button">查看奖品详情</button>`
+							: ""}
+						<button class="btn btn-ghost btn-lg" onclick="renderBlindBox()" type="button" style="margin-top:8px;">返回盲盒</button>
+					</div>
+				</div>
+			</div>
+		`;
+
+		// 更新 history cache
+		_bbCache.history.unshift({
+			itemId: "just-opened",
+			itemName: result.itemName,
+			itemImage: result.itemImage,
+			itemRarity: result.itemRarity,
+			openedAt: new Date().toISOString(),
+			pointsSpent: result.points?.spent || 0,
+		});
+	} catch (e) {
+		console.error("openBlindBox error:", e);
+		showToast(e.message || "开盒失败，请重试");
+		btn.disabled = false;
+		btn.textContent = "🎁 立即开盒";
+	}
 }
 
 // ===== PAGE: LUCKY CHARM =====

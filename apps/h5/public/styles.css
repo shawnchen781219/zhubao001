@@ -3072,3 +3072,384 @@ body {
   width: 100%;
 }
 
+
+/* ===== 盲盒 Pool Card ===== */
+.bb-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-dim);
+}
+.bb-empty-icon {
+  font-size: 48px;
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+.bb-empty-title {
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.bb-empty-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.bb-loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.bb-pool-card {
+  background: linear-gradient(135deg, rgba(201, 162, 78, 0.15), rgba(201, 162, 78, 0.05));
+  border: 1px solid rgba(201, 162, 78, 0.3);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.bb-pool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bb-pool-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+}
+.bb-pool-price {
+  background: var(--bg-surface);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--gold);
+  font-weight: 600;
+}
+.bb-pool-price.free {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+.bb-pool-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.bb-pool-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.bb-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 10px 0;
+}
+
+.bb-items-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.bb-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s;
+}
+.bb-item.obtained {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+}
+.bb-item-img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.bb-item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bb-item-placeholder {
+  font-size: 28px;
+  opacity: 0.4;
+}
+.bb-item-placeholder.small {
+  font-size: 18px;
+}
+.bb-item-placeholder.big {
+  font-size: 56px;
+}
+.bb-item-name {
+  font-size: 11px;
+  color: var(--text);
+  margin-top: 4px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bb-item-secret {
+  position: absolute;
+  inset: 6px;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: calc(100% - 42px);
+  background: linear-gradient(135deg, rgba(201, 162, 78, 0.4), rgba(201, 162, 78, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  border-radius: 6px;
+}
+.bb-item-obtained {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #4ade80;
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  letter-spacing: 0.05em;
+}
+
+/* ===== 稀有度徽章 ===== */
+.bb-rarity {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.bb-rarity.common {
+  background: rgba(138, 138, 138, 0.2);
+  color: #b8b8b8;
+}
+.bb-rarity.rare {
+  background: rgba(74, 144, 226, 0.2);
+  color: #4a90e2;
+}
+.bb-rarity.epic {
+  background: rgba(155, 89, 182, 0.2);
+  color: #bb6bd9;
+}
+.bb-rarity.legendary {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+  text-shadow: 0 0 8px rgba(243, 156, 18, 0.4);
+  animation: legendary-glow 2s ease-in-out infinite;
+}
+@keyframes legendary-glow {
+  0%, 100% { text-shadow: 0 0 8px rgba(243, 156, 18, 0.4); }
+  50% { text-shadow: 0 0 14px rgba(243, 156, 18, 0.7); }
+}
+
+/* ===== 开盒按钮 ===== */
+.bb-open-btn {
+  transition: all 0.2s;
+}
+.bb-open-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-surface) !important;
+  color: var(--text-dim) !important;
+}
+.bb-limit-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+/* ===== 开盒动画 ===== */
+.bb-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+  animation: bb-fade-in 0.3s ease;
+}
+@keyframes bb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.bb-reveal-sparkles {
+  position: absolute;
+  font-size: 40px;
+  top: 20%;
+  animation: bb-sparkle 1.5s ease-in-out infinite;
+}
+@keyframes bb-sparkle {
+  0%, 100% { transform: rotate(0) scale(1); opacity: 0.8; }
+  50% { transform: rotate(180deg) scale(1.2); opacity: 1; }
+}
+.bb-reveal-card {
+  text-align: center;
+  background: var(--bg-card);
+  padding: 30px 24px;
+  border-radius: 20px;
+  max-width: 320px;
+  width: 100%;
+  border: 2px solid;
+  animation: bb-reveal-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes bb-reveal-pop {
+  0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.bb-reveal-card.common { border-color: #8a8a8a; }
+.bb-reveal-card.rare { border-color: #4a90e2; box-shadow: 0 0 30px rgba(74, 144, 226, 0.4); }
+.bb-reveal-card.epic { border-color: #bb6bd9; box-shadow: 0 0 30px rgba(155, 89, 182, 0.5); }
+.bb-reveal-card.legendary { border-color: #f39c12; box-shadow: 0 0 40px rgba(243, 156, 18, 0.6); }
+.bb-reveal-kicker {
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+.bb-reveal-img {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(201, 162, 78, 0.3);
+}
+.bb-reveal-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bb-reveal-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.bb-reveal-value {
+  font-size: 14px;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.bb-reveal-points {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+}
+.bb-reveal-actions {
+  margin-top: 10px;
+}
+
+/* ===== 开箱历史 ===== */
+.bb-history-empty {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.bb-history-empty-icon {
+  font-size: 32px;
+  opacity: 0.3;
+  margin-bottom: 8px;
+}
+.bb-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bb-history-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  align-items: center;
+}
+.bb-hist-img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bb-hist-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bb-hist-body {
+  flex: 1;
+  min-width: 0;
+}
+.bb-hist-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.bb-hist-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 380px) {
+  .bb-items-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bb-pool-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
