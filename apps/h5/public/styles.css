@@ -2973,3 +2973,102 @@ body {
   color: var(--text-dim);
   font-size: 12px;
 }
+
+/* ===== Profile Page - Real Name + Edit ===== */
+.profile-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1.5px solid var(--gold);
+  background: rgba(201, 162, 78, 0.08);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plb-icon {
+  font-size: 14px;
+}
+
+.plb-name {
+  letter-spacing: 0.04em;
+}
+
+.profile-edit-btn {
+  float: right;
+  margin: 8px 0 0 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.profile-edit-btn:hover,
+.profile-edit-btn:active {
+  background: var(--bg-surface);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ===== Edit Name Modal ===== */
+.edit-name-wrap {
+  padding: 10px 4px 4px;
+}
+
+.edit-name-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text, #f9fafb);
+  text-align: center;
+}
+
+.edit-name-sub {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--text-dim, #9ca3af);
+  text-align: center;
+}
+
+.edit-name-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-surface, #111827);
+  color: var(--text, #f9fafb);
+  font-size: 16px;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.edit-name-input:focus {
+  border-color: var(--gold);
+}
+
+.edit-name-hint {
+  margin: 8px 0 20px;
+  font-size: 11px;
+  color: var(--text-dim, #9ca3af);
+}
+
+.edit-name-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 10px;
+}
+
+.edit-name-actions .btn {
+  width: 100%;
+}
+

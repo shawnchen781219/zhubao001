@@ -1,4 +1,13 @@
-import { Controller, Get, Inject, Query, Req, UseGuards } from "@nestjs/common";
+import {
+	Body,
+	Controller,
+	Get,
+	Inject,
+	Patch,
+	Query,
+	Req,
+	UseGuards,
+} from "@nestjs/common";
 import { PRISMA_CLIENT } from "../../common/prisma-runtime/prisma-runtime.tokens.js";
 import type { PrismaClient } from "../../generated/client.js";
 import type { StaffPrincipal } from "../auth/staff-auth.guard.js";
@@ -110,5 +119,64 @@ export class H5MemberController {
 	@Get("all-levels")
 	async allLevels() {
 		return this.svc.listAllLevels();
+	}
+
+	@Patch("me/display-name")
+	async updateDisplayName(
+		@Req() req: Record<symbol, unknown>,
+		@Body() body: { displayName: string },
+	) {
+		const principal = getStaffPrincipal(req) as StaffPrincipal | null;
+		const storeId = principal?.storeId ?? "";
+
+		// 找当前 customer（与 listByStore 一致，按 createdAt desc，取最新）
+		const customers = await this.prisma.customer.findMany({
+			where: { storeId, status: "ACTIVE" },
+			orderBy: { createdAt: "desc" },
+			take: 1,
+		});
+		const customerId = customers[0]?.id;
+		if (!customerId) return { ok: false, error: "NO_MEMBER" };
+
+		// 校验 displayName
+		const name = typeof body?.displayName === "string" ? body.displayName.trim() : "";
+		if (!name) return { ok: false, error: "INVALID_NAME", message: "姓名不能为空" };
+		if (name.length > 20) return { ok: false, error: "INVALID_NAME", message: "姓名最长 20 个字" };
+		// 禁止特殊符号（允许的字符：中文、字母、数字、空格、·、.、-、_）
+		const forbidden = /[<>{}()\[\]\/\\@!#$%^&*+=`~:;'",?|]/.test(name);
+		if (forbidden) return { ok: false, error: "INVALID_NAME", message: "姓名包含非法字符" };
+
+		// 更新
+		const updated = await this.prisma.customer.update({
+			where: { id: customerId },
+			data: { displayName: name },
+			include: { memberProfile: true },
+		});
+
+		// 写 EventLog（不阻塞主流程）
+		try {
+			await this.prisma.eventLog.create({
+				data: {
+					storeId,
+					eventType: "CUSTOMER_PROFILE_UPDATED",
+					customerId,
+					payload: { action: "update-display-name", displayName: name },
+				},
+			});
+		} catch {
+			// ignore
+		}
+
+		return {
+			ok: true,
+			customerId,
+			displayName: name,
+			profile: updated.memberProfile
+				? {
+						level: updated.memberProfile.level,
+						points: updated.memberProfile.points,
+					}
+				: null,
+		};
 	}
 }

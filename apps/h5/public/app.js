@@ -2057,14 +2057,159 @@ async function claimCoupon() {
 }
 
 // ===== PAGE: PROFILE =====
-function renderProfile() {
-	document.getElementById("profile-name").textContent = "尊贵客人";
-	document.getElementById("profile-id").textContent =
-		`ID: ${(tryOnSession?.id || "guest").slice(0, 12).toUpperCase()}`;
-	document.getElementById("profile-stats").innerHTML = `
+async function renderProfile() {
+	const nameEl = document.getElementById("profile-name");
+	const idEl = document.getElementById("profile-id");
+	const statsEl = document.getElementById("profile-stats");
+	// 默认值（API 失败时）
+	nameEl.textContent = "尊贵客人";
+	idEl.textContent = `ID: ${(tryOnSession?.id || "guest").slice(0, 12).toUpperCase()}`;
+	statsEl.innerHTML = `
     <div class="profile-stat"><div class="profile-stat-value">${tryOnSession?.items?.length || products.length}</div><div class="profile-stat-label">试戴</div></div>
     <div class="profile-stat"><div class="profile-stat-value">${favorites.size}</div><div class="profile-stat-label">收藏</div></div>
     <div class="profile-stat"><div class="profile-stat-value">${couponClaimed ? 1 : 0}</div><div class="profile-stat-label">到店券</div></div>`;
+
+	// 尝试拉真实数据
+	let me;
+	try {
+		me = await api("/member/my");
+	} catch (e) {
+		console.warn("Profile API failed, using fallback", e);
+		return;
+	}
+	if (!me || !me.ok) {
+		// 接口返回 NO_MEMBER 时，给个引导入口
+		nameEl.textContent = "尊贵客人";
+		idEl.textContent = "尚未绑定会员档案";
+		return;
+	}
+
+	// 真实姓名（没有时保留「尊贵客人」）
+	nameEl.textContent = me.name || "尊贵客人";
+	idEl.innerHTML = me.phone
+		? `手机号：${escapeHtml(me.phone)}`
+		: `ID: ${me.customerId.slice(0, 12).toUpperCase()}`;
+
+	// 等级徽章 + 编辑按钮
+	const header = nameEl.parentElement;
+	let badge = header.querySelector(".profile-level-badge");
+	if (!badge) {
+		badge = document.createElement("div");
+		badge.className = "profile-level-badge";
+		header.appendChild(badge);
+	}
+	badge.innerHTML = `<span class="plb-icon">${me.levelIcon || "🌱"}</span><span class="plb-name">${escapeHtml(me.levelName || "新会员")}</span>`;
+	badge.style.borderColor = me.levelColor || "#C9A24E";
+	badge.style.color = me.levelColor || "#C9A24E";
+
+	// 编辑按钮
+	let editBtn = header.querySelector(".profile-edit-btn");
+	if (!editBtn) {
+		editBtn = document.createElement("button");
+		editBtn.className = "profile-edit-btn";
+		editBtn.type = "button";
+		editBtn.innerHTML = "✏️ 改名";
+		editBtn.addEventListener("click", editProfileName);
+		header.appendChild(editBtn);
+	}
+
+	// 统计
+	statsEl.innerHTML = `
+    <div class="profile-stat"><div class="profile-stat-value">${me.totalTryOns || 0}</div><div class="profile-stat-label">试戴</div></div>
+    <div class="profile-stat"><div class="profile-stat-value">${me.jewelryBoxCount || 0}</div><div class="profile-stat-label">珍藏</div></div>
+    <div class="profile-stat"><div class="profile-stat-value">${me.transactionCount || 0}</div><div class="profile-stat-label">积分记录</div></div>`;
+}
+
+async function editProfileName() {
+	let me = null;
+	try {
+		me = await api("/member/my");
+	} catch {
+		showToast("无法加载资料");
+		return;
+	}
+	if (!me || !me.ok) {
+		showToast("尚未绑定会员档案");
+		return;
+	}
+	const current = me.name || "";
+	const overlay = document.getElementById("modal-overlay");
+	const sheet = document.getElementById("product-modal");
+	const body = document.getElementById("modal-body");
+	body.innerHTML = `
+    <div class="edit-name-wrap">
+      <h3 class="edit-name-title">修改姓名</h3>
+      <p class="edit-name-sub">用于在「我的」页和会员中心展示</p>
+      <input
+        id="edit-name-input"
+        class="edit-name-input"
+        type="text"
+        maxlength="20"
+        placeholder="请输入您的姓名"
+        value="${escapeHtml(current)}"
+        autofocus
+      />
+      <div class="edit-name-hint">1-20 个字，支持中英文 / 数字 / 空格</div>
+      <div class="edit-name-actions">
+        <button class="btn btn-ghost btn-lg" id="edit-name-cancel-btn" type="button">取消</button>
+        <button class="btn btn-gold btn-lg" id="edit-name-save-btn" type="button">保存</button>
+      </div>
+    </div>
+  `;
+	overlay.classList.add("active");
+
+	const input = document.getElementById("edit-name-input");
+	const cancel = document.getElementById("edit-name-cancel-btn");
+	const save = document.getElementById("edit-name-save-btn");
+	const closeSheet = () => overlay.classList.remove("active");
+	cancel.addEventListener("click", closeSheet);
+
+	const doSave = async () => {
+		const value = (input.value || "").trim();
+		if (!value) {
+			showToast("姓名不能为空");
+			return;
+		}
+		if (value.length > 20) {
+			showToast("姓名最长 20 个字");
+			return;
+		}
+		if (/^[<>/\\@#!$%^&*=+]+$/.test(value)) {
+			showToast("姓名包含非法字符");
+			return;
+		}
+		try {
+			save.disabled = true;
+			save.textContent = "保存中…";
+			const resp = await api("/member/me/display-name", {
+				method: "PATCH",
+				body: JSON.stringify({ displayName: value }),
+			});
+			if (resp && resp.ok) {
+				showToast("✓ 已更新为「" + value + "」");
+				closeSheet();
+				renderProfile();
+				refreshNotificationBadge();
+			} else {
+				showToast(resp?.message || "保存失败");
+			}
+		} catch (e) {
+			showToast("保存失败");
+			console.error(e);
+		} finally {
+			save.disabled = false;
+			save.textContent = "保存";
+		}
+	};
+	save.addEventListener("click", doSave);
+	input.addEventListener("keydown", (e) => {
+		if (e.key === "Enter") doSave();
+	});
+	// 自动聚焦并全选
+	setTimeout(() => {
+		input.focus();
+		input.select();
+	}, 100);
 }
 
 // ===== BLIND BOX (reuses luck page briefly) =====
@@ -2207,6 +2352,8 @@ window.openBlindBox = openBlindBox;
 window.handleNotificationClick = handleNotificationClick;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.refreshNotificationBadge = refreshNotificationBadge;
+window.renderProfile = renderProfile;
+window.editProfileName = editProfileName;
 window.selectedProductId = selectedProductId;
 
 document.addEventListener("DOMContentLoaded", init);
