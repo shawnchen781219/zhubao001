@@ -3,6 +3,7 @@ import { RuntimeConfigModule } from "./common/config/runtime-config.module.js";
 import { AdminDeviceModule } from "./modules/admin/admin.module.js";
 import { AdminAggregateModule } from "./modules/admin/admin-aggregate.module.js";
 import { StaffAuthModule } from "./modules/auth/staff-auth.module.js";
+import { BlindBoxModule } from "./modules/blind-box/blind-box.module.js";
 import { CareModule } from "./modules/care/care.module.js";
 import { CatalogModule } from "./modules/catalog/catalog.controllers.js";
 import { CouponModule } from "./modules/coupon/coupon.module.js";
@@ -96,6 +97,11 @@ export const API_MODULE_BOUNDARIES: ApiModuleBoundary[] = [
 		ownsWrites: ["ReferralCard", "ReferralEvent"],
 		reads: ["Customer", "Store"],
 	},
+	{
+		name: "BlindBoxModule",
+		ownsWrites: ["BlindBoxPool", "BlindBoxItem", "BlindBoxHistory"],
+		reads: ["Store", "Customer", "Product", "ProductAsset", "MemberProfile"],
+	},
 ];
 
 @Module({
@@ -110,6 +116,7 @@ export const API_MODULE_BOUNDARIES: ApiModuleBoundary[] = [
 		CatalogModule,
 		AdminDeviceModule,
 		AdminAggregateModule,
+		BlindBoxModule,
 		JewelryBoxModule,
 		CareModule,
 		LuckySignModule,

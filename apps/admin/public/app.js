@@ -14,6 +14,9 @@ const state = {
   activities: [],
   tradeins: [],
   careItems: [],
+  blindBoxPools: [],
+  blindBoxStats: null,
+  currentBlindBoxPool: null,
   filterStatus: "all",
   filterMemberTier: "all",
   filterActivityType: "all",
@@ -230,6 +233,18 @@ async function loadActivities() {
   } catch (e) {
     console.warn("Referral stats API failed", e);
     state.referralStats = null;
+  }
+  try {
+    state.blindBoxPools = await api("/blind-box/admin/pools");
+  } catch (e) {
+    console.warn("Blind box pools API failed", e);
+    state.blindBoxPools = [];
+  }
+  try {
+    state.blindBoxStats = await api("/blind-box/admin/stats");
+  } catch (e) {
+    console.warn("Blind box stats API failed", e);
+    state.blindBoxStats = null;
   }
   renderActivities();
 }
@@ -736,8 +751,519 @@ function renderActivities() {
           }).join("")}
         </div>` : ""}
       </div>`;
-  } else if (refPanel) {
+   } else if (refPanel) {
     refPanel.innerHTML = '<div class="panel-body"><div class="empty-msg">暂无裂变活动数据</div></div>';
+  }
+
+  // Render Blind Box Panel
+  renderBlindBoxPanel();
+}
+
+function renderBlindBoxPanel() {
+  const panel = document.getElementById("blindbox-panel");
+  if (!panel) return;
+
+  const pools = state.blindBoxPools || [];
+  const stats = state.blindBoxStats || { totalOpens: 0, totalPoints: 0, topItems: [] };
+
+  const activeCount = pools.filter(p => p.isActive).length;
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2 class="panel-title">🎁 宝石盲盒配置</h2>
+      <button class="btn btn-sm btn-gold" onclick="showBlindBoxPoolForm()" type="button">+ 新建奖池</button>
+    </div>
+    <div class="panel-body">
+      <div class="stats-row" style="margin-bottom:16px;">
+        <div class="stat-card"><div class="stat-val">${pools.length}</div><div class="stat-lbl">奖池总数</div></div>
+        <div class="stat-card"><div class="stat-val">${activeCount}</div><div class="stat-lbl">启用中</div></div>
+        <div class="stat-card"><div class="stat-val">${stats.totalOpens?.toLocaleString() || 0}</div><div class="stat-lbl">累计开箱</div></div>
+        <div class="stat-card"><div class="stat-val">${(stats.totalPoints || 0).toLocaleString()}</div><div class="stat-lbl">消耗积分</div></div>
+      </div>
+
+      ${pools.length ? `
+        <div class="detail-section">
+          <div class="detail-title">奖池列表</div>
+          ${pools.map(p => {
+            const isToday = new Date(p.activeFrom) <= new Date() && new Date(p.activeUntil) >= new Date();
+            const statusBadge = isToday && p.isActive
+              ? '<span class="badge badge-success">今日生效</span>'
+              : p.isActive
+                ? '<span class="badge badge-info">启用中</span>'
+                : '<span class="badge badge-muted">已停用</span>';
+            return `
+              <div class="mini-card" style="cursor:pointer;" onclick="showBlindBoxPoolDetail('${p.id}')">
+                <div class="mini-header" style="display:flex;justify-content:space-between;align-items:center;">
+                  <div>
+                    <div class="mini-title" style="font-size:14px;">${escapeHtml(p.title)}</div>
+                    <div class="mini-meta" style="margin-top:4px;">${formatDateShort(p.activeFrom)} ~ ${formatDateShort(p.activeUntil)}</div>
+                  </div>
+                  ${statusBadge}
+                </div>
+                <div style="display:flex;gap:16px;margin-top:8px;">
+                  <div class="mini-meta">🎁 ${p.itemCount} 奖品</div>
+                  <div class="mini-meta">📦 已送出 ${p.totalGiven}</div>
+                  <div class="mini-meta">💰 ${p.openPrice} 积分/次</div>
+                </div>
+              </div>`;
+          }).join("")}
+        </div>
+      ` : `
+        <div class="empty-msg" style="padding:30px;">暂无奖池，点击右上角「+ 新建奖池」开始配置</div>
+      `}
+
+      ${stats.topItems && stats.topItems.length ? `
+        <div class="detail-section">
+          <div class="detail-title">🏆 热门奖品 TOP${stats.topItems.length}</div>
+          ${stats.topItems.map((it, i) => `
+            <div class="mini-card">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;background:var(--bg-surface);padding:4px 10px;border-radius:6px;">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)}</span>
+                <div style="flex:1;">
+                  <div class="mini-title">${escapeHtml(it.customName)}</div>
+                  <div class="mini-meta">稀有度 ${it.rarity} · 已送出 ${it.totalGiven}</div>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+// ===== Blind Box Pool Management =====
+async function showBlindBoxPoolForm(poolData = null) {
+  const isEdit = !!poolData;
+  const title = isEdit ? "编辑奖池" : "新建奖池";
+
+  // 加载产品列表（用于奖品配置）
+  let products = [];
+  try {
+    const resp = await api("/admin/products");
+    products = Array.isArray(resp) ? resp : resp.items || [];
+  } catch (e) {
+    console.warn("Load products failed", e);
+  }
+  window._bbProducts = products;
+
+  document.getElementById("drawer-title").textContent = title;
+  document.getElementById("drawer-body").innerHTML = `
+    <div class="detail-section">
+      <div class="detail-grid">
+        <div class="detail-label">奖池名称 *</div>
+        <div>
+          <input class="tradein-input" id="bb-title" type="text" placeholder="例：夏日限定盲盒" value="${poolData ? escapeHtml(poolData.title) : ""}" />
+        </div>
+
+        <div class="detail-label">描述</div>
+        <div>
+          <textarea class="tradein-textarea" id="bb-desc" placeholder="奖池介绍（可选）">${poolData ? escapeHtml(poolData.description || "") : ""}</textarea>
+        </div>
+
+        <div class="detail-label">生效日期 *</div>
+        <div>
+          <input class="tradein-input" id="bb-from" type="date" value="${poolData ? poolData.activeFrom.slice(0, 10) : new Date().toISOString().slice(0, 10)}" />
+        </div>
+
+        <div class="detail-label">结束日期 *</div>
+        <div>
+          <input class="tradein-input" id="bb-until" type="date" value="${poolData ? poolData.activeUntil.slice(0, 10) : new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}" />
+        </div>
+
+        <div class="detail-label">开启积分</div>
+        <div>
+          <input class="tradein-input" id="bb-price" type="number" min="0" step="1" value="${poolData ? poolData.openPrice : 0}" />
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">设为 0 即免费开盒</div>
+        </div>
+
+        <div class="detail-label">每日限次</div>
+        <div>
+          <input class="tradein-input" id="bb-max" type="number" min="1" max="99" step="1" value="${poolData ? poolData.maxOpensPerDay : 1}" />
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">每用户每天最多开盒次数</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <button class="btn btn-lg ${isEdit ? 'btn-gold' : 'btn-gold'}" onclick="${isEdit ? `submitBlindBoxPoolEdit('${poolData.id}')` : 'submitBlindBoxPoolCreate()'}" type="button" style="width:100%;">
+        ${isEdit ? '保存修改' : '创建奖池（下一步配置奖品）'}
+      </button>
+    </div>
+  `;
+  openDrawer();
+}
+
+async function submitBlindBoxPoolCreate() {
+  const title = document.getElementById("bb-title").value.trim();
+  const description = document.getElementById("bb-desc").value.trim();
+  const activeFrom = document.getElementById("bb-from").value;
+  const activeUntil = document.getElementById("bb-until").value;
+  const openPrice = Number.parseInt(document.getElementById("bb-price").value, 10) || 0;
+  const maxOpensPerDay = Number.parseInt(document.getElementById("bb-max").value, 10) || 1;
+
+  if (!title) return showToast("请输入奖池名称");
+  if (!activeFrom || !activeUntil) return showToast("请填写生效和结束日期");
+  if (new Date(activeFrom) > new Date(activeUntil)) return showToast("结束日期必须晚于生效日期");
+
+  try {
+    const result = await api("/blind-box/admin/pools", {
+      method: "POST",
+      body: JSON.stringify({
+        title, description: description || null,
+        activeFrom, activeUntil, openPrice, maxOpensPerDay,
+      }),
+    });
+    showToast("✓ 奖池创建成功");
+    closeDrawer();
+    await loadActivities();
+    // 打开奖品列表编辑
+    setTimeout(() => showBlindBoxPoolDetail(result.id), 500);
+  } catch (e) {
+    showToast("创建失败：" + (e.message || e.toString()));
+  }
+}
+
+async function submitBlindBoxPoolEdit(poolId) {
+  const title = document.getElementById("bb-title").value.trim();
+  const description = document.getElementById("bb-desc").value.trim();
+  const activeFrom = document.getElementById("bb-from").value;
+  const activeUntil = document.getElementById("bb-until").value;
+  const openPrice = Number.parseInt(document.getElementById("bb-price").value, 10) || 0;
+  const maxOpensPerDay = Number.parseInt(document.getElementById("bb-max").value, 10) || 1;
+
+  if (!title) return showToast("请输入奖池名称");
+  if (!activeFrom || !activeUntil) return showToast("请填写生效和结束日期");
+
+  try {
+    await api(`/blind-box/admin/pools/${poolId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title, description: description || null,
+        activeFrom, activeUntil, openPrice, maxOpensPerDay,
+      }),
+    });
+    showToast("✓ 奖池更新成功");
+    closeDrawer();
+    await loadActivities();
+    setTimeout(() => showBlindBoxPoolDetail(poolId), 300);
+  } catch (e) {
+    showToast("更新失败：" + (e.message || e.toString()));
+  }
+}
+
+async function toggleBlindBoxPool(poolId, currentStatus) {
+  try {
+    await api(`/blind-box/admin/pools/${poolId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive: !currentStatus }),
+    });
+    showToast(currentStatus ? "奖池已停用" : "奖池已启用");
+    await loadActivities();
+  } catch (e) {
+    showToast("操作失败：" + (e.message || e.toString()));
+  }
+}
+
+async function deleteBlindBoxPool(poolId) {
+  if (!confirm("确定要删除这个奖池？关联的奖品也将一起删除且不可恢复。")) return;
+  try {
+    await api(`/blind-box/admin/pools/${poolId}`, { method: "DELETE" });
+    showToast("✓ 奖池已删除");
+    closeDrawer();
+    await loadActivities();
+  } catch (e) {
+    showToast("删除失败：" + (e.message || e.toString()));
+  }
+}
+
+async function showBlindBoxPoolDetail(poolId) {
+  try {
+    const data = await api(`/blind-box/admin/pools/${poolId}`);
+    const pool = data.pool;
+    const items = data.items || [];
+    const stats = data.stats || {};
+    state.currentBlindBoxPool = pool;
+
+    const rarityColor = {
+      COMMON: "#8A8A8A",
+      RARE: "#4A90E2",
+      EPIC: "#9B59B6",
+      LEGENDARY: "#F39C12",
+    };
+    const rarityLabel = {
+      COMMON: "普通", RARE: "稀有", EPIC: "史诗", LEGENDARY: "传说",
+    };
+
+    const activeFrom = new Date(pool.activeFrom).toISOString().slice(0, 10);
+    const activeUntil = new Date(pool.activeUntil).toISOString().slice(0, 10);
+    const isToday = activeFrom <= new Date().toISOString().slice(0, 10) && activeUntil >= new Date().toISOString().slice(0, 10);
+
+    document.getElementById("drawer-title").textContent = `🎁 ${pool.title}`;
+    document.getElementById("drawer-body").innerHTML = `
+      <div class="detail-section">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          ${isToday && pool.isActive ? '<span class="badge badge-success">今日生效</span>' : pool.isActive ? '<span class="badge badge-info">启用中</span>' : '<span class="badge badge-muted">已停用</span>'}
+          <span class="badge badge-muted">💰 ${pool.openPrice} 积分/次</span>
+          <span class="badge badge-muted">🔁 每日限 ${pool.maxOpensPerDay} 次</span>
+        </div>
+        <div class="detail-desc">${pool.description ? escapeHtml(pool.description) : '无描述'}</div>
+        <div class="detail-grid" style="margin-top:10px;">
+          <div class="detail-label">周期</div>
+          <div class="detail-value">${activeFrom} ~ ${activeUntil}</div>
+          <div class="detail-label">累计开盒</div>
+          <div class="detail-value">${stats.totalOpens?.toLocaleString() || 0} 次</div>
+          <div class="detail-label">奖品数</div>
+          <div class="detail-value">${items.length} 个</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-title">
+          奖品列表
+          <span style="font-size:12px;color:${stats.isValid ? '#4ade80' : '#f87171'};margin-left:8px;">
+            ${stats.probWarning || '✓ 概率总和正常 (1.0)'}
+          </span>
+        </div>
+
+        ${items.length ? `
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">
+            概率格式：0.00 ~ 1.00（总和需 ≈ 1.0）
+          </div>
+          ${items.map(it => {
+            const probLabel = (it.probability * 100).toFixed(1) + "%";
+            const stockLabel = it.stock === -1 ? "∞" : it.stock;
+            return `
+              <div class="mini-card" style="border-left:3px solid ${rarityColor[it.rarity] || '#8A8A8A'};position:relative;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                  <div style="flex:1;min-width:0;">
+                    <div class="mini-title" style="font-size:13px;">${escapeHtml(it.customName)}</div>
+                    <div class="mini-meta" style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+                      <span style="background:${rarityColor[it.rarity] || '#8A8A8A'}20;color:${rarityColor[it.rarity] || '#8A8A8A'};padding:1px 8px;border-radius:10px;font-size:11px;">
+                        ${rarityLabel[it.rarity] || it.rarity}
+                      </span>
+                      <span>概率 <strong>${probLabel}</strong></span>
+                      <span>库存 <strong>${stockLabel}</strong></span>
+                      <span>已送 <strong>${it.totalGiven}</strong></span>
+                    </div>
+                    ${it.description ? `<div class="mini-meta" style="margin-top:4px;">${escapeHtml(it.description).slice(0, 60)}${it.description.length > 60 ? '...' : ''}</div>` : ''}
+                    ${it.product ? `<div class="mini-meta" style="margin-top:2px;">🔗 关联商品：${escapeHtml(it.product.name)} (${it.product.sku})</div>` : ''}
+                  </div>
+                  <div style="display:flex;gap:4px;">
+                    <button class="btn btn-sm btn-ghost" onclick="editBlindBoxItem('${it.id}', ${JSON.stringify(it).replace(/"/g, '&quot;')})" type="button">编辑</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBlindBoxItem('${it.id}')" type="button">×</button>
+                  </div>
+                </div>
+              </div>`;
+          }).join("")}
+        ` : `
+          <div class="empty-msg" style="padding:20px;">暂无奖品，点击下方添加</div>
+        `}
+
+        <button class="btn btn-lg btn-gold" onclick="addBlindBoxItem('${poolId}')" type="button" style="width:100%;margin-top:8px;">
+          + 添加奖品
+        </button>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-title">操作</div>
+        <div class="detail-actions">
+          <button class="btn btn-sm btn-ghost" onclick="showBlindBoxPoolForm(${JSON.stringify(pool).replace(/"/g, '&quot;')})" type="button">编辑奖池</button>
+          <button class="btn btn-sm ${pool.isActive ? 'btn-warn' : 'btn-success'}" onclick="toggleBlindBoxPool('${poolId}', ${pool.isActive})" type="button">
+            ${pool.isActive ? '停用' : '启用'}
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="deleteBlindBoxPool('${poolId}')" type="button">删除奖池</button>
+        </div>
+      </div>
+    `;
+    openDrawer();
+  } catch (e) {
+    showToast("加载失败：" + (e.message || e.toString()));
+  }
+}
+
+async function addBlindBoxItem(poolId) {
+  const products = window._bbProducts || [];
+
+  document.getElementById("drawer-title").textContent = "🎁 添加奖品";
+  document.getElementById("drawer-body").innerHTML = `
+    <div class="detail-section">
+      <div class="detail-grid">
+        <div class="detail-label">奖品名称 *</div>
+        <div>
+          <input class="tradein-input" id="bbit-name" type="text" placeholder="例：1ct 钻石戒指" />
+        </div>
+
+        <div class="detail-label">描述</div>
+        <div>
+          <textarea class="tradein-textarea" id="bbit-desc" placeholder="奖品介绍（可选）"></textarea>
+        </div>
+
+        <div class="detail-label">图片 URL</div>
+        <div>
+          <input class="tradein-input" id="bbit-image" type="text" placeholder="http://..." />
+        </div>
+
+        <div class="detail-label">概率 * (0~1)</div>
+        <div>
+          <input class="tradein-input" id="bbit-prob" type="number" min="0" max="1" step="0.01" value="0.1" />
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">所有奖品概率之和应为 1.0</div>
+        </div>
+
+        <div class="detail-label">稀有度</div>
+        <div>
+          <select class="tradein-select" id="bbit-rarity">
+            <option value="COMMON">普通 (Common)</option>
+            <option value="RARE">稀有 (Rare)</option>
+            <option value="EPIC">史诗 (Epic)</option>
+            <option value="LEGENDARY">传说 (Legendary)</option>
+          </select>
+        </div>
+
+        <div class="detail-label">库存</div>
+        <div>
+          <input class="tradein-input" id="bbit-stock" type="number" min="-1" step="1" value="-1" />
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">-1 表示无限库存</div>
+        </div>
+
+        <div class="detail-label">关联商品</div>
+        <div>
+          <select class="tradein-select" id="bbit-product">
+            <option value="">-- 不关联 --</option>
+            ${products.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (${p.sku})</option>`).join("")}
+          </select>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">选中后盲盒可展示商品详情</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <button class="btn btn-lg btn-gold" onclick="submitBlindBoxItemCreate('${poolId}')" type="button" style="width:100%;">
+        添加奖品
+      </button>
+    </div>
+  `;
+}
+
+async function submitBlindBoxItemCreate(poolId) {
+  const customName = document.getElementById("bbit-name").value.trim();
+  const description = document.getElementById("bbit-desc").value.trim();
+  const image = document.getElementById("bbit-image").value.trim();
+  const probability = Number.parseFloat(document.getElementById("bbit-prob").value);
+  const rarity = document.getElementById("bbit-rarity").value;
+  const stock = Number.parseInt(document.getElementById("bbit-stock").value, 10);
+  const productId = document.getElementById("bbit-product").value || null;
+
+  if (!customName) return showToast("请输入奖品名称");
+  if (Number.isNaN(probability) || probability < 0 || probability > 1) {
+    return showToast("概率必须是 0~1 之间的数字");
+  }
+  if (Number.isNaN(stock)) return showToast("库存必须是整数");
+
+  try {
+    await api("/blind-box/admin/items", {
+      method: "POST",
+      body: JSON.stringify({
+        poolId, customName, image: image || null,
+        description: description || null,
+        probability, rarity, stock: stock ?? -1,
+        productId,
+      }),
+    });
+    showToast("✓ 奖品添加成功");
+    await loadActivities();
+    setTimeout(() => showBlindBoxPoolDetail(poolId), 300);
+  } catch (e) {
+    showToast("添加失败：" + (e.message || e.toString()));
+  }
+}
+
+async function editBlindBoxItem(itemId, itemData) {
+  const products = window._bbProducts || [];
+  const poolId = state.currentBlindBoxPool?.id;
+  if (!poolId) return;
+
+  document.getElementById("drawer-title").textContent = "编辑奖品";
+  document.getElementById("drawer-body").innerHTML = `
+    <div class="detail-section">
+      <div class="detail-grid">
+        <div class="detail-label">奖品名称 *</div>
+        <div><input class="tradein-input" id="bbit-name" type="text" value="${escapeHtml(itemData.customName)}" /></div>
+
+        <div class="detail-label">描述</div>
+        <div><textarea class="tradein-textarea" id="bbit-desc">${escapeHtml(itemData.description || "")}</textarea></div>
+
+        <div class="detail-label">图片 URL</div>
+        <div><input class="tradein-input" id="bbit-image" type="text" value="${escapeHtml(itemData.image || "")}" /></div>
+
+        <div class="detail-label">概率 * (0~1)</div>
+        <div><input class="tradein-input" id="bbit-prob" type="number" min="0" max="1" step="0.01" value="${itemData.probability}" /></div>
+
+        <div class="detail-label">稀有度</div>
+        <div>
+          <select class="tradein-select" id="bbit-rarity">
+            <option value="COMMON" ${itemData.rarity === "COMMON" ? "selected" : ""}>普通</option>
+            <option value="RARE" ${itemData.rarity === "RARE" ? "selected" : ""}>稀有</option>
+            <option value="EPIC" ${itemData.rarity === "EPIC" ? "selected" : ""}>史诗</option>
+            <option value="LEGENDARY" ${itemData.rarity === "LEGENDARY" ? "selected" : ""}>传说</option>
+          </select>
+        </div>
+
+        <div class="detail-label">库存</div>
+        <div><input class="tradein-input" id="bbit-stock" type="number" min="-1" step="1" value="${itemData.stock}" /></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <button class="btn btn-lg btn-gold" onclick="submitBlindBoxItemEdit('${itemId}', '${poolId}')" type="button" style="width:100%;">
+        保存修改
+      </button>
+    </div>
+  `;
+}
+
+async function submitBlindBoxItemEdit(itemId, poolId) {
+  const customName = document.getElementById("bbit-name").value.trim();
+  const description = document.getElementById("bbit-desc").value.trim();
+  const image = document.getElementById("bbit-image").value.trim();
+  const probability = Number.parseFloat(document.getElementById("bbit-prob").value);
+  const rarity = document.getElementById("bbit-rarity").value;
+  const stock = Number.parseInt(document.getElementById("bbit-stock").value, 10);
+
+  if (!customName) return showToast("请输入奖品名称");
+  if (Number.isNaN(probability) || probability < 0 || probability > 1) {
+    return showToast("概率必须是 0~1 之间的数字");
+  }
+
+  try {
+    await api(`/blind-box/admin/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        customName, image: image || null,
+        description: description || null,
+        probability, rarity, stock,
+      }),
+    });
+    showToast("✓ 奖品更新成功");
+    await loadActivities();
+    setTimeout(() => showBlindBoxPoolDetail(poolId), 300);
+  } catch (e) {
+    showToast("更新失败：" + (e.message || e.toString()));
+  }
+}
+
+async function deleteBlindBoxItem(itemId) {
+  if (!confirm("确定要删除这个奖品？该操作不可恢复。")) return;
+  const poolId = state.currentBlindBoxPool?.id;
+  if (!poolId) return;
+
+  try {
+    await api(`/blind-box/admin/items/${itemId}`, { method: "DELETE" });
+    showToast("✓ 奖品已删除");
+    await loadActivities();
+    setTimeout(() => showBlindBoxPoolDetail(poolId), 300);
+  } catch (e) {
+    showToast("删除失败：" + (e.message || e.toString()));
   }
 }
 function showActivityDetail(id) {
@@ -1165,5 +1691,16 @@ window.closeDrawer = closeDrawer;
 window.redeemCoupon = redeemCoupon;
 window.filterItems = filterItems;
 window.showToast = showToast;
+window.showBlindBoxPoolForm = showBlindBoxPoolForm;
+window.submitBlindBoxPoolCreate = submitBlindBoxPoolCreate;
+window.submitBlindBoxPoolEdit = submitBlindBoxPoolEdit;
+window.toggleBlindBoxPool = toggleBlindBoxPool;
+window.deleteBlindBoxPool = deleteBlindBoxPool;
+window.showBlindBoxPoolDetail = showBlindBoxPoolDetail;
+window.addBlindBoxItem = addBlindBoxItem;
+window.submitBlindBoxItemCreate = submitBlindBoxItemCreate;
+window.editBlindBoxItem = editBlindBoxItem;
+window.submitBlindBoxItemEdit = submitBlindBoxItemEdit;
+window.deleteBlindBoxItem = deleteBlindBoxItem;
 
 document.addEventListener("DOMContentLoaded", init);
