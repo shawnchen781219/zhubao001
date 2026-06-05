@@ -57,6 +57,7 @@ options:
   --skip-build        跳过本地构建
   --skip-commit       跳过自动 git commit
   --skip-verify       跳过健康检查
+  --skip-push         跳过自动 git push
   --dry-run           模拟执行，输出命令但不执行
   -h, --help          显示帮助
 
@@ -81,6 +82,7 @@ TARGET="all"
 SKIP_BUILD=0
 SKIP_COMMIT=0
 SKIP_VERIFY=0
+SKIP_PUSH=0
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -89,6 +91,7 @@ while [[ $# -gt 0 ]]; do
     --skip-build)    SKIP_BUILD=1 ;;
     --skip-commit)   SKIP_COMMIT=1 ;;
     --skip-verify)   SKIP_VERIFY=1 ;;
+    --skip-push)     SKIP_PUSH=1 ;;
     --dry-run)       DRY_RUN=1 ;;
     -h|--help)       usage ;;
     *)               err "Unknown option: $1"; usage ;;
@@ -239,6 +242,29 @@ do_commit() {
   ok "已 commit：${msg}"
 }
 
+# ── 5. 自动 git push ──
+do_push() {
+  if [[ $SKIP_PUSH -eq 1 ]]; then
+    warn "跳过自动 git push"
+    return 0
+  fi
+
+  cd "$PROJECT_ROOT"
+  
+  # 检查是否有未推送的 commit
+  local unpushed
+  unpushed=$(git log origin/main..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$unpushed" -eq 0 ]]; then
+    log "📤 无未推送的 commit，跳过 push"
+    return 0
+  fi
+
+  log "📤 推送到 GitHub（${unpushed} 个 commit）..."
+  run git push origin main \
+    || { err "git push 失败"; exit 1; }
+  ok "已推送到 GitHub"
+}
+
 # ── 主流程 ──
 main() {
   echo -e "${CYN}"
@@ -248,7 +274,7 @@ main() {
   echo -e "${RST}"
   log "Target:   ${CYN}${TARGET}${RST}"
   log "Server:   ${CYN}${SSH_USER}@${SSH_HOST}${RST} → ${REMOTE_DIR}"
-  log "Skip:     build=${SKIP_BUILD}  commit=${SKIP_COMMIT}  verify=${SKIP_VERIFY}"
+  log "Skip:     build=${SKIP_BUILD}  commit=${SKIP_COMMIT}  verify=${SKIP_VERIFY}  push=${SKIP_PUSH}"
   log "Dry-run:  ${DRY_RUN}"
   echo ""
 
@@ -259,6 +285,7 @@ main() {
   do_upload
   do_restart
   do_commit
+  do_push
 
   local end_ts
   end_ts=$(date +%s)
