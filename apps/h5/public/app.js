@@ -526,6 +526,8 @@ function goTo(page) {
 		passport: renderPassport,
 		coupon: renderCoupon,
 		blindbox: renderBlindBox,
+		notifications: renderNotifications,
+		levelUps: renderLevelUps,
 	};
 	if (renders[page]) renders[page]();
 }
@@ -678,6 +680,13 @@ async function renderMember() {
 		return;
 	}
 
+	// 更新页面头问候语
+	const greet = document.getElementById("mem-greet");
+	if (greet) greet.textContent = m.name ? `欢迎回来，${m.name}` : "欢迎回来";
+
+	// 异步更新通知角标
+	refreshNotificationBadge();
+
 	const pct = m.nextLevel
 		? Math.round((m.points / m.nextLevel.requiredPoints) * 100)
 		: 100;
@@ -778,6 +787,9 @@ async function renderMember() {
 		)
 		.join("");
 
+	// 渲染等级晋升历史
+	renderMemberLevelHistory();
+
 	const historyBox = document.getElementById("mem-history");
 	historyBox.innerHTML = '<div class="mem-history-loading">加载中…</div>';
 	try {
@@ -809,6 +821,210 @@ async function renderMember() {
 			.join("");
 	} catch (e) {
 		historyBox.innerHTML = '<div class="empty-msg">加载失败</div>';
+	}
+}
+
+// 渲染会员页内的"等级晋升历史"卡片
+async function renderMemberLevelHistory() {
+	const box = document.getElementById("mem-level-history");
+	if (!box) return;
+	box.innerHTML = '<div class="mem-history-loading">加载中…</div>';
+	try {
+		const resp = await api("/member/my/level-history?limit=5");
+		const items = Array.isArray(resp) ? resp : resp?.items || [];
+		if (!items.length) {
+			box.innerHTML = '<div class="empty-msg">暂无等级变更记录</div>';
+			return;
+		}
+		const tierIcons = { DIAMOND: "💎", PLATINUM: "💍", GOLD: "👑", SILVER: "🥈", NEW: "🌱" };
+		box.innerHTML = items.map((log) => {
+			const directionIcon = log.direction === "UPGRADE" ? "⬆" : log.direction === "DOWNGRADE" ? "⬇" : "★";
+			const directionClass = log.direction === "UPGRADE" ? "level-up" : log.direction === "DOWNGRADE" ? "level-down" : "level-init";
+			const directionLabel = log.direction === "UPGRADE" ? "升级" : log.direction === "DOWNGRADE" ? "降级" : "加入";
+			return `
+      <div class="level-history-row ${directionClass}">
+        <div class="level-history-icon">${tierIcons[log.toLevel] || "⭐"}</div>
+        <div class="level-history-body">
+          <div class="level-history-title">${directionIcon} ${directionLabel}至 ${log.toLevelName}</div>
+          <div class="level-history-meta">
+            ${log.fromLevelName ? `原等级：${log.fromLevelName}` : "首次加入"} · ${log.toPoints.toLocaleString()} 积分 · ${formatDate(log.createdAt)}
+          </div>
+          ${log.note ? `<div class="level-history-note">${log.note}</div>` : ""}
+        </div>
+      </div>`;
+		}).join("") + `
+      <button class="btn btn-ghost btn-full" onclick="goTo('levelUps')" type="button" style="margin-top:10px;">查看完整晋升轨迹 →</button>`;
+	} catch (e) {
+		box.innerHTML = '<div class="empty-msg">加载失败</div>';
+	}
+}
+
+// ===== 通知中心 =====
+let _notifItems = [];
+
+async function refreshNotificationBadge() {
+	const badge = document.getElementById("mem-notif-badge");
+	if (!badge) return;
+	try {
+		const resp = await api("/notifications/unread-count");
+		const count = typeof resp === "number" ? resp : resp?.count ?? 0;
+		if (count > 0) {
+			badge.textContent = count > 99 ? "99+" : String(count);
+			badge.style.display = "flex";
+		} else {
+			badge.style.display = "none";
+		}
+	} catch (e) {
+		badge.style.display = "none";
+	}
+}
+
+async function renderNotifications() {
+	const list = document.getElementById("notif-list");
+	if (!list) return;
+	list.innerHTML = '<div class="mem-history-loading">加载中…</div>';
+	try {
+		const resp = await api("/notifications?limit=30");
+		const items = resp?.items || [];
+		_notifItems = items;
+		const unread = resp?.unread ?? 0;
+		// 更新角标
+		const badge = document.getElementById("mem-notif-badge");
+		if (badge) {
+			if (unread > 0) {
+				badge.textContent = unread > 99 ? "99+" : String(unread);
+				badge.style.display = "flex";
+			} else {
+				badge.style.display = "none";
+			}
+		}
+		if (!items.length) {
+			list.innerHTML = `
+        <div class="notif-empty">
+          <div class="notif-empty-icon">🔔</div>
+          <div class="notif-empty-text">暂无通知</div>
+          <div class="notif-empty-subtext">参与活动后会收到提醒</div>
+        </div>`;
+			return;
+		}
+		list.innerHTML = items.map((n) => {
+			const unreadDot = n.readAt ? "" : '<span class="notif-unread-dot"></span>';
+			return `
+        <div class="notif-card ${n.readAt ? "" : "unread"}" onclick="handleNotificationClick('${n.id}')">
+          <div class="notif-icon">${n.iconEmoji || "📬"}</div>
+          <div class="notif-body">
+            <div class="notif-title">${unreadDot}${n.title}</div>
+            <div class="notif-preview">${n.body}</div>
+            <div class="notif-time">${formatDate(n.createdAt)}</div>
+          </div>
+        </div>`;
+		}).join("");
+	} catch (e) {
+		list.innerHTML = '<div class="empty-msg">加载失败</div>';
+	}
+}
+
+async function handleNotificationClick(id) {
+	try {
+		await api(`/notifications/${id}/read`, { method: "PATCH" });
+	} catch (e) {
+		// ignore
+	}
+	refreshNotificationBadge();
+	const n = _notifItems.find((i) => i.id === id);
+	if (!n) return;
+	// 升级通知 → 跳到等级晋升页
+	if (n.type === "MEMBER_LEVEL_UPGRADED" || n.type === "MEMBER_LEVEL_DOWNGRADED") {
+		// 弹出升级祝贺
+		showUpgradePopup(n);
+		// 刷新 member 页数据（如果有新等级）
+		renderMember();
+		return;
+	}
+	// 其他通知：跳 actionUrl 或 toast
+	if (n.actionUrl) {
+		const page = n.actionUrl.replace(/^\//, "");
+		goTo(page);
+		return;
+	}
+	showToast(n.title);
+	// 重新渲染通知列表（标记已读状态变化）
+	renderNotifications();
+}
+
+async function markAllNotificationsRead() {
+	try {
+		await api("/notifications/read-all", { method: "POST" });
+		showToast("✓ 已全部标记为已读");
+		refreshNotificationBadge();
+		renderNotifications();
+	} catch (e) {
+		showToast("操作失败");
+	}
+}
+
+function showUpgradePopup(n) {
+	const payload = n.payload || {};
+	const levelName = payload.levelName || n.title;
+	const benefits = Array.isArray(payload.benefits) ? payload.benefits : [];
+	const levelIcons = { DIAMOND: "💎", PLATINUM: "💍", GOLD: "👑", SILVER: "🥈", NEW: "🌱" };
+	const icon = levelIcons[payload.level] || "⭐";
+	const isUpgrade = n.type === "MEMBER_LEVEL_UPGRADED";
+	const modalBody = document.getElementById("modal-body");
+	modalBody.innerHTML = `
+    <div class="upgrade-popup ${isUpgrade ? "up" : "down"}">
+      <div class="upgrade-pop-icon">${icon}</div>
+      <div class="upgrade-pop-kicker">${isUpgrade ? "恭喜 · 等级晋升" : "等级变更"}</div>
+      <div class="upgrade-pop-title">${levelName}</div>
+      ${benefits.length ? `
+      <div class="upgrade-pop-benefits">
+        <div class="upgrade-pop-benefits-title">新解锁 ${benefits.length} 项权益</div>
+        ${benefits.map((b) => `<div class="upgrade-pop-benefit">✓ ${b}</div>`).join("")}
+      </div>` : ""}
+      <button class="btn btn-gold btn-lg btn-full" onclick="closeModal(); goTo('member');" type="button" style="margin-top:20px;">查看会员中心</button>
+      <button class="btn btn-ghost btn-full" onclick="closeModal();" type="button" style="margin-top:10px;">稍后再看</button>
+    </div>`;
+	document.getElementById("modal-overlay").classList.add("active");
+}
+
+// ===== 等级晋升时间线 =====
+async function renderLevelUps() {
+	const box = document.getElementById("level-up-timeline");
+	if (!box) return;
+	box.innerHTML = '<div class="mem-history-loading">加载中…</div>';
+	try {
+		const resp = await api("/member/my/level-history?limit=50");
+		const items = Array.isArray(resp) ? resp : resp?.items || [];
+		if (!items.length) {
+			box.innerHTML = '<div class="empty-msg">暂无等级变更记录</div>';
+			return;
+		}
+		const tierIcons = { DIAMOND: "💎", PLATINUM: "💍", GOLD: "👑", SILVER: "🥈", NEW: "🌱" };
+		box.innerHTML = items.map((log, idx) => {
+			const directionIcon = log.direction === "UPGRADE" ? "⬆⬆" : log.direction === "DOWNGRADE" ? "⬇" : "★";
+			const directionClass = log.direction === "UPGRADE" ? "level-up" : log.direction === "DOWNGRADE" ? "level-down" : "level-init";
+			const directionLabel = log.direction === "UPGRADE" ? "升级" : log.direction === "DOWNGRADE" ? "降级" : "加入法芮珂";
+			const benefits = Array.isArray(log.earnedBenefits) ? log.earnedBenefits : [];
+			return `
+      <div class="tl-item ${directionClass}">
+        <div class="tl-dot-wrap">
+          <div class="tl-dot">${idx === 0 ? "now" : idx}</div>
+          ${idx < items.length - 1 ? '<div class="tl-line"></div>' : ""}
+        </div>
+        <div class="tl-card">
+          <div class="tl-icon">${tierIcons[log.toLevel] || "⭐"}</div>
+          <div class="tl-main">
+            <div class="tl-title">${directionIcon} ${directionLabel}至 <span style="color:${log.toLevelColor || '#C9A24E'}">${log.toLevelName}</span></div>
+            <div class="tl-meta">${formatDate(log.createdAt)} · 积分 ${log.toPoints.toLocaleString()}</div>
+            ${log.fromLevelName ? `<div class="tl-from">从 ${log.fromLevelName} 起</div>` : ""}
+            ${benefits.length ? `<div class="tl-benefits">${benefits.slice(0,3).map(b => `<span class="tl-benefit">✓ ${b}</span>`).join("")}</div>` : ""}
+            ${log.note ? `<div class="tl-note">${log.note}</div>` : ""}
+          </div>
+        </div>
+      </div>`;
+		}).join("");
+	} catch (e) {
+		box.innerHTML = '<div class="empty-msg">加载失败</div>';
 	}
 }
 
@@ -1071,6 +1287,8 @@ async function flipLuckCard() {
 		const sig = await api("/lucky-sign/reveal", { method: "POST" });
 		f = sig.fortune;
 		if (sig.streakDays > 1) showToast(`🔥 连续签到 ${sig.streakDays} 天`);
+		// 签到可能触发等级升级，更新通知角标
+		refreshNotificationBadge();
 	} catch (e) {
 		console.warn("lucky-sign API failed, using local fortune", e);
 		f = FORTUNES[Math.floor(Math.random() * FORTUNES.length)];
@@ -1834,6 +2052,8 @@ async function claimCoupon() {
 	claimedCoupon = result;
 	showToast("🎉 权益领取成功！");
 	renderCoupon();
+	// 领券可能触发等级升级
+	refreshNotificationBadge();
 }
 
 // ===== PAGE: PROFILE =====
@@ -1928,6 +2148,11 @@ async function init() {
 	}
 	document.getElementById("splash").classList.add("hidden");
 	setupListeners();
+	// 首次进入即刷新通知角标，之后每 30s 轮询一次
+	refreshNotificationBadge();
+	setInterval(() => {
+		try { refreshNotificationBadge(); } catch (_) { /* ignore */ }
+	}, 30_000);
 	const refCode = new URLSearchParams(window.location.search).get("ref");
 	if (refCode) {
 		showReferralLanding(refCode);
@@ -1979,6 +2204,9 @@ window.toggleFav = toggleFav;
 window.toggleCmp = toggleCmp;
 window.showRecDetail = showRecDetail;
 window.openBlindBox = openBlindBox;
+window.handleNotificationClick = handleNotificationClick;
+window.markAllNotificationsRead = markAllNotificationsRead;
+window.refreshNotificationBadge = refreshNotificationBadge;
 window.selectedProductId = selectedProductId;
 
 document.addEventListener("DOMContentLoaded", init);

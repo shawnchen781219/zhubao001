@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=308" />
+  <link rel="stylesheet" href="styles.css?v=309" />
 </head>
 <body>
   <div id="app">
@@ -263,13 +263,38 @@
 
       <!-- ===== PAGE: MEMBER ===== -->
       <section class="page" id="page-member">
+        <header class="mem-page-header">
+          <div>
+            <h2 class="page-title">会员中心</h2>
+            <p class="page-desc" id="mem-greet">欢迎回来</p>
+          </div>
+          <button class="mem-notif-btn" id="mem-notif-btn" onclick="goTo('notifications')" type="button" style="position:relative;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><title>icon</title><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <span class="mem-notif-badge" id="mem-notif-badge" style="display:none;">0</span>
+          </button>
+        </header>
         <div class="mem-hero" id="mem-hero"></div>
         <div class="section"><div class="section-header"><span class="section-line"></span><h3 class="section-title">会员权益</h3><span class="section-line"></span></div>
           <div id="mem-benefits"></div></div>
+        <div class="section"><div class="section-header"><span class="section-line"></span><h3 class="section-title">等级晋升历史</h3><span class="section-line"></span></div>
+          <div id="mem-level-history"></div></div>
         <div class="section"><div class="section-header"><span class="section-line"></span><h3 class="section-title">成就徽章</h3><span class="section-line"></span></div>
           <div class="mem-badges" id="mem-badges"></div></div>
         <div class="section"><div class="section-header"><span class="section-line"></span><h3 class="section-title">积分记录</h3><span class="section-line"></span></div>
           <div id="mem-history"></div></div>
+      </section>
+
+      <section class="page" id="page-notifications">
+        <header class="notif-page-header">
+          <h2 class="page-title">通知中心</h2>
+          <button class="notif-markall-btn" id="notif-markall-btn" onclick="markAllNotificationsRead()" type="button">全部已读</button>
+        </header>
+        <div id="notif-list" class="notif-list"></div>
+      </section>
+
+      <section class="page" id="page-level-ups">
+        <div class="page-header"><h2 class="page-title">等级晋升轨迹</h2><p class="page-desc">您的成长之路</p></div>
+        <div id="level-up-timeline" class="level-up-timeline"></div>
       </section>
 
       <!-- ===== PAGE: DISCOVER ===== -->
@@ -358,6 +383,6 @@
 
   </div>
 
-  <script src="app.js?v=308"></script>
+  <script src="app.js?v=309"></script>
 </body>
 </html>

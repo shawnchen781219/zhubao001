@@ -146,6 +146,8 @@ enum EventType {
   COUPON_EXPIRED
   COUPON_VOIDED
   STAFF_FOLLOW_UP_CREATED
+  MEMBER_LEVEL_UPGRADED
+  MEMBER_LEVEL_DOWNGRADED
 }
 
 model Store {
@@ -223,6 +225,8 @@ model Customer {
   pointsTransactions PointsTransaction[]
   referralCards      ReferralCard[]
   tradeInAssessments TradeInAssessment[]
+  notifications      Notification[]
+  levelLogs          MemberLevelLog[]
 
   @@index([storeId, status])
   @@index([phoneHash])
@@ -776,4 +780,57 @@ model TradeInAssessment {
   @@index([status])
   @@index([createdAt])
   @@index([category, conditionGrade])
+}
+
+enum NotificationType {
+  MEMBER_LEVEL_UPGRADED
+  MEMBER_LEVEL_DOWNGRADED
+  COUPON_EXPIRING
+  CARE_REMINDER
+  BIRTHDAY_BONUS
+  PROMOTION
+  SYSTEM
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  customerId   String
+  customer     Customer         @relation(fields: [customerId], references: [id])
+  type         NotificationType
+  title        String
+  body         String
+  iconEmoji    String?
+  actionUrl    String?
+  payload      Json?
+  readAt       DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([customerId, readAt])
+  @@index([type, createdAt])
+}
+
+enum LevelChangeDirection {
+  UPGRADE
+  DOWNGRADE
+  INITIAL
+}
+
+model MemberLevelLog {
+  id                        String               @id @default(cuid())
+  customerId                String
+  customer                  Customer             @relation(fields: [customerId], references: [id])
+  fromLevel                 MemberLevel?
+  toLevel                   MemberLevel
+  direction                 LevelChangeDirection
+  triggerPointsBalance      Int
+  triggerPointsTransactionId String?
+  fromPoints                Int
+  toPoints                  Int
+  note                      String?
+  createdAt                 DateTime             @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([fromLevel, toLevel])
+  @@index([direction])
 }

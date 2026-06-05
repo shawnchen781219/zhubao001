@@ -12,6 +12,7 @@ import { HealthModule } from "./modules/health/health.module.js";
 import { JewelryBoxModule } from "./modules/jewelry-box/jewelry-box.module.js";
 import { LuckySignModule } from "./modules/lucky-sign/lucky-sign.module.js";
 import { MemberModule } from "./modules/member/member.module.js";
+import { NotificationModule } from "./modules/notifications/notifications.module.js";
 import { ReferralModule } from "./modules/referral/referral.module.js";
 import { TradeInModule } from "./modules/trade-in/trade-in.module.js";
 import { TryOnModule } from "./modules/try-on/try-on.module.js";
@@ -81,7 +82,13 @@ export const API_MODULE_BOUNDARIES: ApiModuleBoundary[] = [
 	},
 	{
 		name: "MemberModule",
-		ownsWrites: ["MemberProfile", "PointsTransaction", "MemberLevelRule"],
+		ownsWrites: [
+			"MemberProfile",
+			"PointsTransaction",
+			"MemberLevelRule",
+			"MemberLevelLog",
+			"Notification",
+		],
 		reads: ["Customer", "JewelryBoxItem"],
 	},
 	{
@@ -107,6 +114,7 @@ export const API_MODULE_BOUNDARIES: ApiModuleBoundary[] = [
 		CareModule,
 		LuckySignModule,
 		MemberModule,
+		NotificationModule,
 		ReferralModule,
 		TradeInModule,
 	],

@@ -101,6 +101,8 @@ export enum DomainEventType {
 	CouponExpired = "COUPON_EXPIRED",
 	CouponVoided = "COUPON_VOIDED",
 	StaffFollowUpCreated = "STAFF_FOLLOW_UP_CREATED",
+	MemberLevelUpgraded = "MEMBER_LEVEL_UPGRADED",
+	MemberLevelDowngraded = "MEMBER_LEVEL_DOWNGRADED",
 }
 
 export const ApiRoute = {
