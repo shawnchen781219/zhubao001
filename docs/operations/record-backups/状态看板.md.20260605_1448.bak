@@ -1,0 +1,250 @@
+# 珠宝店数字化项目 · 三方协作状态看板
+
+**最后更新：**2026-06-05 14:25 Asia/Shanghai
+**更新人：**Hermes（环境管理员 / 执行记录回填员）
+**协作方式：**线程01下达指令并复审，线程02执行代码与回填执行记录，Hermes 仅保留环境辅助职责
+
+---
+
+## 当前状态
+
+| 项目 | 状态 |
+|------|------|
+|| 最新指令 | **指令065** 已下达，状态"已审查，待执行"（无新反馈时保持静默） |
+|| 最新执行 | **执行065** 已由 Hermes 补写回填（2026-06-04 11:02）；等待线程01审查通过 |
+|| 环境状态 | ✅ `typecheck` 6/6 通过；`lint` 0 errors / 13 warnings；`test` 18 files / 197 tests 通过；`build` 通过；Prisma validate/generate 通过；Admin/H5 smoke HTTP 200 正常；服务进程正常 |
+|| 当前阻塞 | **无环境阻塞** — 14:15–14:25 检测到 1 项新的未记录变更（deploy.sh 更新）；已记录到执行文件 |
+|| 下一步 | 等待线程01审查并更新指令065 状态；持续跟踪 Admin 产物、trade-in、deploy.sh 未记录变更来源 |
+
+## 当前测试入口状态
+
+| 入口 | 实际 URL | 状态 | 备注 |
+|------|----------|------|------|
+| 后台管理端 | `http://127.0.0.1:4201` | ✅ HTTP 200 | `node scripts/serve.mjs`（PID 58320, port 4201） |
+| H5 测试入口 | `http://127.0.0.1:4202` | ✅ HTTP 200 | `node scripts/serve.mjs`（PID 81656, port 4202） |
+| API 后端 | `http://127.0.0.1:3000/healthz` | ✅ HTTP 200 | `node apps/api/dist/main.js`（PID 4225） |
+
+**测试边界：**当前仍为 Mock 第一轮人工测试；不代表真实账号、真实 API、真实数据库、小程序 runtime、微信 SDK 或魔镜终端链路已完成。
+
+---
+
+## 本次巡检关键发现（14:25）
+
+### 巡检摘要
+
+| 项目 | 结果 |
+|------|------|
+| 指令状态 | 指令065 状态仍为"已审查，待执行"，执行065 已回填，等待线程01复审 |
+| 环境健康 | ✅ 全部通过：typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常 |
+| lint | ✅ 0 errors / 13 warnings（历史遗留 warnings） |
+| 依赖 lock | 无变化（`pnpm-lock.yaml` 最后修改 2026-06-03 21:14:29） |
+| 新增执行记录需求 | 无（`pnpm-lock.yaml` 未变更，无新指令/新执行记录需补写） |
+| 自动修复 | 未触发 — 环境健康，无需自动修复 |
+| 新增未记录变更 | 检测到 1 项新的未记录变更 — deploy.sh 更新（commit `cc777e1`） |
+
+### 未记录变更持续跟踪
+
+1. **新增未记录变更（2026-06-05 14:25）：**
+   - git 提交 `cc777e1538da2afaa34c51bb68cf5d3fedfbce6f`（2026-06-05 14:25:38）提交信息 `feat: integrate auto git push into deploy.sh`。
+   - `scripts/deploy.sh` 新增 `--skip-push` 选项和 `do_push()` 函数，部署后自动推送到 GitHub。
+   - 上述变更发生在指令065 期间，但执行文件中无对应正式执行记录；已记录到执行文件环境监控记录中。
+
+2. **Admin 前端产物未记录变更（12:40–12:50）：**
+   - `apps/admin/public/app.js` 最后修改 2026-06-05 12:45:50，文件大小 65706 bytes。
+   - `apps/admin/public/styles.css` 最后修改 2026-06-05 12:46:14，文件大小 30368 bytes。
+   - 上述变更无对应正式执行记录。
+
+3. **H5 前端产物变更（12:10–12:20）：**
+   - `apps/h5/public/app.js` 最后修改 2026-06-05 12:20:29，文件大小 80061 bytes。
+   - `apps/h5/public/styles.css` 最后修改 2026-06-05 12:20:57，文件大小 48046 bytes。
+   - `apps/h5/public/index.html` 最后修改 2026-06-05 12:21:17，文件大小 17635 bytes。
+   - 上述变更无对应正式执行记录。
+
+4. **trade-in 模块未记录变更持续：**
+   - `apps/api/src/modules/trade-in/` （4 个新文件 + Prisma schema/migration + app.module.ts 注册）仍无对应正式执行记录，持续违反指令065"不修改后端 API、Prisma"约束。
+
+### 处理动作
+
+- 未触发自动修复，环境全部指标通过。
+- 更新状态看板时间戳至 2026-06-05 14:25。
+
+---
+
+## 本次巡检关键发现（14:15）
+
+### 巡检摘要
+
+| 项目 | 结果 |
+|------|------|
+| 指令状态 | 指令065 状态仍为"已审查，待执行"，执行065 已回填，等待线程01复审 |
+| 环境健康 | ✅ 全部通过：typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常 |
+| lint | ✅ 0 errors / 13 warnings（历史遗留 warnings） |
+| 依赖 lock | 无变化（`pnpm-lock.yaml` 最后修改 2026-06-03 21:14:29） |
+| 新增执行记录需求 | 无（`pnpm-lock.yaml` 未变更，无新指令/新执行记录需补写） |
+| 自动修复 | 未触发 — 环境健康，无需自动修复 |
+| 新增未记录变更 | 无 — 14:10 至 14:15 未检测到新的业务源码或产物变更 |
+
+### 处理动作
+
+- 未触发自动修复，环境全部指标通过。
+- 更新状态看板时间戳至 2026-06-05 14:15。
+
+---
+
+## 本次巡检关键发现（14:06）
+
+### 巡检摘要
+
+| 项目 | 结果 |
+|------|------|
+| 指令状态 | 指令065 状态仍为"已审查，待执行"，执行065 已回填，等待线程01复审 |
+| 环境健康 | ✅ 全部通过：typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常 |
+| lint | ✅ 0 errors / 13 warnings（历史遗留 warnings） |
+| 依赖 lock | 无变化（`pnpm-lock.yaml` 最后修改 2026-06-03 21:14:29） |
+| 新增执行记录需求 | 无（`pnpm-lock.yaml` 未变更，无新指令/新执行记录需补写） |
+| 自动修复 | 未触发 — 环境健康，无需自动修复 |
+| 新增未记录变更 | 检测到 1 项新的未记录变更 — git 提交 `e8e9c8b`新增 `scripts/deploy.sh` 和 package.json deploy 脚本 |
+
+### 未记录变更持续跟踪
+
+1. **新增未记录变更（26a0️ 2026-06-05 14:06）：**
+   - git 提交 `e8e9c8ba10f9aa93f3a9ddb921240a91113ac2b0`（2026-06-05 14:06:45）提交信息 `feat: add one-click deployment script`。
+   - `package.json` 新增 deploy / deploy:api / deploy:h5 / deploy:admin / deploy:prisma / deploy:quick 脚本。
+   - `scripts/deploy.sh` 为新增一键部署脚本。
+   - 上述变更发生在指令065 期间，但执行文件中无对应正式执行记录；已记录到执行文件环境监控记录中。
+
+2. **Admin 前端产物未记录变更（12:40–12:50）：**
+   - `apps/admin/public/app.js` 最后修改 2026-06-05 12:45:50，文件大小 65706 bytes。
+   - `apps/admin/public/styles.css` 最后修改 2026-06-05 12:46:14，文件大小 30368 bytes。
+   - 上述变更无对应正式执行记录。
+
+3. **H5 前端产物变更（12:10–12:20）：**
+   - `apps/h5/public/app.js` 最后修改 2026-06-05 12:20:29，文件大小 80061 bytes。
+   - `apps/h5/public/styles.css` 最后修改 2026-06-05 12:20:57，文件大小 48046 bytes。
+   - `apps/h5/public/index.html` 最后修改 2026-06-05 12:21:17，文件大小 17635 bytes。
+   - 上述变更无对应正式执行记录。
+
+4. **trade-in 模块未记录变更持续：**
+   - `apps/api/src/modules/trade-in/` （4 个新文件 + Prisma schema/migration + app.module.ts 注册）仍无对应正式执行记录，持续违反指令065"不修改后端 API、Prisma"约束。
+
+### 处理动作
+
+- 未触发自动修复，环境全部指标通过。
+- 更新状态看板时间戳至 2026-06-05 14:06。
+- 13:45 至 14:06 未检测到新的业务源码变更（deploy.sh 属于根级部署脚本，已记录为未记录变更）。
+
+---
+
+## 本次巡检关键发现（13:45）
+
+### 巡检摘要
+
+| 项目 | 结果 |
+|------|------|
+| 指令状态 | 指令065 状态仍为"已审查，待执行"，执行065 已回填，等待线程01复审 |
+| 环境健康 | ✅ 全部通过：typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常 |
+| lint | ✅ 0 errors / 13 warnings（历史遗留 warnings） |
+| 依赖 lock | 无变化（`pnpm-lock.yaml` 最后修改 2026-06-03 21:14:29） |
+| 新增执行记录需求 | 无（`pnpm-lock.yaml` 未变更，无新指令/新执行记录需补写） |
+| 自动修复 | 未触发 — 环境健康，无需自动修复 |
+| 新增未记录变更 | 无 — 13:10 至 13:45 未检测到新的业务源码或产物变更 |
+
+### 未记录变更持续跟踪
+
+1. **Admin 前端产物未记录变更（12:40–12:50）：**
+   - `apps/admin/public/app.js` 最后修改 2026-06-05 12:45:50，文件大小 65706 bytes。
+   - `apps/admin/public/styles.css` 最后修改 2026-06-05 12:46:14，文件大小 30368 bytes。
+   - 上述变更无对应正式执行记录，如属于指令065 "收到 Shawn 反馈时的修复"情境，建议线程02补充执行记录说明。
+
+2. **H5 前端产物变更（12:10–12:20 已记录）：**
+   - `apps/h5/public/app.js` 最后修改 2026-06-05 12:20:29，文件大小 80061 bytes。
+   - `apps/h5/public/styles.css` 最后修改 2026-06-05 12:20:57，文件大小 48046 bytes。
+   - `apps/h5/public/index.html` 最后修改 2026-06-05 12:21:17，文件大小 17635 bytes。
+   - 上述变更无对应正式执行记录。
+
+3. **trade-in 模块未记录变更持续：**
+   - `apps/api/src/modules/trade-in/` （4 个新文件 + Prisma schema/migration + app.module.ts 注册）仍无对应正式执行记录，持续违反指令065"不修改后端 API、Prisma"约束。
+
+### 处理动作
+
+- 未触发自动修复，环境全部指标通过。
+- 更新状态看板时间戳至 2026-06-05 13:45。
+- 13:10 至 13:45 未检测到新的业务源码或产物变更，无需补写执行记录。
+
+---
+
+## 角色分工（最终版）
+
+| 角色 | 身份 | 职责 | 不做什么 |
+|------|------|-------|----------|
+| 线程01 | 系统架构师 / 软件白盒测试工程师 | 下达技术指令、审查代码、裁决架构冲突 | 不写业务代码、不装环境 |
+| 线程02 | 代码执行工程师 | 执行线程01技术指令、修改代码、运行验证、回填执行记录 | 不下达技术指令、不改架构决策 |
+| Hermes | 环境管理员 / 白盒审查辅助 / 状态同步 | 环境健康辅助、状态巡检、必要时协助记录一致性 | 不下达技术指令、不作为当前代码执行方 |
+
+---
+
+## 历史里程碑
+
+- ✅ 001–012 已审查通过
+- ✅ 013–015 第一批根级工具安装完成
+- ✅ 016 API + Prisma manifest 准备完成
+- ✅ 017 第二批 API + Prisma 依赖已安装
+- ✅ 018 Prisma 7 配置迁移完成，validate/generate 通过
+- ✅ 019 API 运行壳已建立，健康检查与统一错误/追踪基础正常
+- ✅ 020 验证文档已补齐，复验通过，线程01审查通过
+- ✅ 021 自动化白盒测试基线已建立
+- ✅ 022 测试基线已修复：test 文件统一移至 `apps/api/test/`，tsconfig 恢复，路由守卫强化
+- ✅ 023–038 已审查通过（Customer 领域、设备认证、心跳、Event 体系、Prisma adapter 等）
+- ✅ 039 已审查通过（EventLog adapter 边界守卫收口）
+- ✅ 040 已审查通过（EventService + PrismaEventPort 组合白盒测试）
+- ✅ 041 已审查通过（DeviceService 心跳链路组合白盒测试）
+- ✅ 042 已审查通过（ADR-006、边界守卫增强、协作记录安全规范）
+- ✅ 043 已审查通过（修复协作记录安全览、验证数量一致性）
+- ✅ 044 已执行（Prisma runtime 单一边界骨架建立）— 线程01复验不通过，指令045 修复完成
+- ✅ 045 已审查不通过后由指令046修复
+- ✅ 046 已审查通过（PrismaRuntimeModule provider/export 测试升级为真实 Nest metadata）
+- ❌ 047 复审不通过（metadata helper 未覆盖 dynamic module import 与 object provider 实现侧名称）
+- ✅ 048 已审查通过（boundary metadata helper coverage repair）
+- ✅ 049 已审查通过（Event Prisma DI contract test）
+- ✅ 050 已审查通过（EventPersistenceModule dormant wiring）
+- ✅ 051 已审查通过（DeviceAuth Prisma adapter contract）
+- ✅ 052 已审查通过（DeviceAuthPersistenceModule dormant wiring）
+- ✅ 053 已审查通过（PrismaDevicePort heartbeat adapter contract）
+- ✅ 054 已审查通过（DevicePersistenceModule dormant wiring）
+- ✅ 055 已审查通过（admin/h5 静态测试入口）
+- ✅ 056 已审查通过（Mock 第一轮人工测试入口加固）
+- ✅ 057 已执行（Mock 第一轮人工测试服务已开放）
+- ✅ 059 已审查通过（后台管理端模块点击、详情面板、Mock 反馈修复）
+- ✅ 060 已执行（Admin/H5 第一轮人工复测跑，服务健康确认）
+- ✅ 062 已执行（Admin/H5 厚 Mock 业务路径加厚，等待线程01复审）
+- ✅ 064 已审查通过（Admin/H5 第二层厚 Mock 加厚）
+- ⏳ 065 已下达，执行065 已由 Hermes 补写回填（2026-06-04），等待线程01审查并更新指令065 状态
+- ⚠️ 2026-06-05 07:34–07:54 检测到持续的后端 API 与 Prisma 变更（care/jewelry-box/lucky-sign 模块 + migration + AppModule 注册），无对应执行记录，违反指令065 约束
+- ⚠️ 2026-06-05 08:18–08:22 检测到新的未记录变更：`admin-aggregate.module.ts` 被完全重写为直接访问 Prisma 的完整 NestJS 模块，且 Admin 前端产物被更新；lint 从 0 errors 恶化为 3 errors；boundary-guard 存在盲区
+- ⚠️ 2026-06-05 09:10 巡检：**检测到大量新的未记录变更**（会员积分体系 Prisma schema + migration、新增 member 后端模块直接导入 PrismaRuntimeModule、Admin 前端产物更新、AppModule 注册 MemberModule），违反指令065"不修改后端 API、Prisma"约束；lint 状态改善为 0 errors / 2 warnings；所有服务健康
+- ⚠️ 2026-06-05 09:20 巡检：检测到 09:18–09:24 新的未记录变更（try-on/jewelry-box/lucky-sign 模块再次修改）；lint 初始 1 error / 6 warnings，通过 `pnpm format` 自动修复后恢复为 0 errors / 6 warnings；所有服务健康
+- ✅ 2026-06-05 09:40 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 5 warnings；`pnpm-lock.yaml` 无变化；未触发自动修复；持续跟踪 09:18–09:25 未记录变更痕迹
+- ✅ 2026-06-05 09:54 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 5 warnings；`pnpm-lock.yaml` 无变化；检测到 `apps/admin/public/app.js` 09:44:57 新未记录变更
+- ✅ 2026-06-05 10:00 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 5 warnings；`pnpm-lock.yaml` 无变化；10:00–10:05 未检测到新的未记录业务源码变更
+- ✅ 2026-06-05 10:05 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 5 warnings；`pnpm-lock.yaml` 无变化；10:00–10:05 未检测到新的未记录业务源码变更
+- ✅ 2026-06-05 10:18 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 已自动修复至 0 errors / 6 warnings；H5 前端产物新未记录变更；建议线程01核查
+- ⚠️ 2026-06-05 10:25 巡检：环境部分受阻（typecheck/build 失败，referral.service.ts 14 个类型错误）；lint 已自动修复至 0 errors / 7 warnings；test 197 通过；prisma validate/generate 通过；smoke HTTP 200；服务进程正常；检测到 referral 模块新未记录变更
+- ✅ 2026-06-05 10:35 巡检：环境已恢复健康（typecheck 6/6、build 通过、test 197 通过、lint 0 errors / 3 warnings、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；检测到 referral 模块在 10:29–10:31 被修改并修复了 typecheck/build 错误，但无对应执行记录
+- ✅ 2026-06-05 10:41 巡检：环境已恢复健康（typecheck 6/6、build 通过、test 197 通过、lint 0 errors / 3 warnings、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；无新的未记录变更；建议线程01核查
+- ✅ 2026-06-05 10:50 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 3 warnings；`pnpm-lock.yaml` 无变化；10:05–10:18 检测到 H5 前端产物新未记录变更；建议线程01核查
+- ✅ 2026-06-05 10:55 巡检：环境完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 3 warnings；自动修复 Prisma schema `GemstoneType` 重复 enum 定义；建议线程01确认 `GemstoneVariety` 命名
+- ⚠️ 2026-06-05 11:05 巡检：**环境部分受阻** — 检测到新的未记录变更 trade-in 模块（含 Prisma schema/migration + 4 个新文件 + AppModule 注册），导致 typecheck/build/test 均失败；lint 已自动修复至 0 errors / 6 warnings；服务进程正常；建议线程01高度关注并下发修复指令
+- ✅ 2026-06-05 11:20 巡检：环境已完全恢复健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 12 warnings（自动修复 trade-in organizeImports/format）；pnpm-lock.yaml 无变化；11:05–11:20 未检测到新的业务源码变更；持续建议线程01核查 trade-in 未记录变更
+- ✅ 2026-06-05 11:40 巡检：环境持续健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 12 warnings；pnpm-lock.yaml 无变化；H5/Admin 无新变更；检测到 trade-in 模块在11:09–11:22 有新的 mtime 更新，持续违反指令065 约束，建议线程01高度关注
+- ✅ 2026-06-05 12:00 巡检：环境持续完全健康（typecheck 6/6、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；lint 0 errors / 12 warnings；pnpm-lock.yaml 无变化；11:40–12:00 未检测到新的业务源码变更；持续跟踪 trade-in 未记录变更
+- ✅ 2026-06-05 12:10 巡检：巡检发现 typecheck 1 失败（trade-in.controller.ts 类型错误）、lint 1 format error；Hermes 自动修复后环境完全恢复（typecheck 6/6、lint 0 errors/13 warnings、test/build/prisma 通过、HTTP 200）；`pnpm-lock.yaml` 无变化；持续跟踪 trade-in 未记录变更
+- ⚠️ 2026-06-05 12:20 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma 通过、smoke HTTP 200、服务进程正常）；但检测到 H5 前端产物在 12:10–12:20 期间有新的未记录变更（app.js/styles.css/index.html mtime 更新）；trade-in 未记录变更持续跟踪；建议线程01高度关注
+- ✅ 2026-06-05 12:30 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma 通过、smoke HTTP 200、服务进程正常）；12:20 至 12:30 未检测到新的业务源码或产物变更；无环境阻塞；无需自动修复
+- ✅ 2026-06-05 12:40 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma 通过、smoke HTTP 200、服务进程正常）；12:30 至 12:40 未检测到新的业务源码或产物变更；无环境阻塞；无需自动修复
+- ⚠️ 2026-06-05 12:50 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma 通过、smoke HTTP 200、服务进程正常）；但检测到 Admin 前端产物在 12:40–12:50 有新的未记录变更（app.js/styles.css mtime 更新）；trade-in 未记录变更持续跟踪；建议线程01高度关注
+- ✅ 2026-06-05 13:00 巡检：环境持续完全健康（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；`pnpm-lock.yaml` 无变化；12:50 至 13:00 未检测到新的业务源码或产物变更；无环境阻塞；未触发自动修复
+- ✅ 2026-06-05 13:10 巡检：环境持续完全健康（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；`pnpm-lock.yaml` 无变化；13:00 至 13:10 未检测到新的业务源码或产物变更；无环境阻塞；未触发自动修复
+- ✅ 2026-06-05 13:45 巡检：环境持续完全健康（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；`pnpm-lock.yaml` 无变化；13:10 至 13:45 未检测到新的业务源码或产物变更；无环境阻塞；未触发自动修复
+- ✅ 2026-06-05 14:15 巡检：环境持续完全健康（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；14:10 至 14:15 未检测到新的业务源码或产物变更；无环境阻塞；未触发自动修复
+- ⚠️ 2026-06-05 14:06 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；检测到新的未记录变更（git 提交 `e8e9c8b`新增 `scripts/deploy.sh` 和 package.json deploy 脚本），已记录到执行文件；持续跟踪 trade-in/Admin/H5 未记录变更
+- ⚠️ 2026-06-05 14:25 巡检：环境全部指标通过（typecheck 6/6、lint 0 errors/13 warnings、test 197 通过、build 通过、prisma validate/generate 通过、smoke HTTP 200、服务进程正常）；检测到新的未记录变更（deploy.sh 更新 commit `cc777e1`），已记录到执行文件；持续跟踪 trade-in/Admin/H5 未记录变更

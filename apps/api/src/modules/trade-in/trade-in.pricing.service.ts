@@ -39,15 +39,15 @@ export class TradeInPricingService {
 	// 贵金属基准价 (元/克) - 2026年6月市场价
 	// purity 字段表示该类型对应的标准纯度（用于识别"显式成色类型"）
 	private readonly metalPrices: Record<string, number> = {
-		GOLD_24K: 590,
-		GOLD_18K: 445,
-		GOLD_14K: 345,
-		GOLD_9K: 220,
-		PLATINUM_PT950: 285,
-		PLATINUM_PT900: 270,
-		SILVER_999: 7.0,
-		SILVER_925: 6.5,
-		PALLADIUM: 225,
+		GOLD_24K: 780,      // 24K足金 (100%)
+		GOLD_18K: 585,      // 18K金 (75%)
+		GOLD_14K: 456,      // 14K金 (58.5%)
+		GOLD_9K: 292,       // 9K金 (37.5%)
+		PLATINUM_PT950: 335, // 铂金Pt950 (95%)
+		PLATINUM_PT900: 318, // 铂金Pt900 (90%)
+		SILVER_999: 8.5,    // 足银999
+		SILVER_925: 7.8,    // 银925
+		PALLADIUM: 235,     // 钯金
 	};
 
 	// 显式成色类型：基准价已包含该类纯度，不应再乘以 metalPurity

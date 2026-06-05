@@ -139,12 +139,16 @@ export class H5MemberController {
 		if (!customerId) return { ok: false, error: "NO_MEMBER" };
 
 		// 校验 displayName
-		const name = typeof body?.displayName === "string" ? body.displayName.trim() : "";
-		if (!name) return { ok: false, error: "INVALID_NAME", message: "姓名不能为空" };
-		if (name.length > 20) return { ok: false, error: "INVALID_NAME", message: "姓名最长 20 个字" };
+		const name =
+			typeof body?.displayName === "string" ? body.displayName.trim() : "";
+		if (!name)
+			return { ok: false, error: "INVALID_NAME", message: "姓名不能为空" };
+		if (name.length > 20)
+			return { ok: false, error: "INVALID_NAME", message: "姓名最长 20 个字" };
 		// 禁止特殊符号（允许的字符：中文、字母、数字、空格、·、.、-、_）
 		const forbidden = /[<>{}()\[\]\/\\@!#$%^&*+=`~:;'",?|]/.test(name);
-		if (forbidden) return { ok: false, error: "INVALID_NAME", message: "姓名包含非法字符" };
+		if (forbidden)
+			return { ok: false, error: "INVALID_NAME", message: "姓名包含非法字符" };
 
 		// 更新
 		const updated = await this.prisma.customer.update({
